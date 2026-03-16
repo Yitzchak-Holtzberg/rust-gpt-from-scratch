@@ -20,8 +20,8 @@ impl Tensor {
 
     pub fn ones(shape: Vec<usize>) -> Self {
         let number_of_ones = shape.iter().product();
-        let zero_contents = vec![1.0f32; number_of_ones];
-        Tensor::new(zero_contents, shape)
+        let one_contents = vec![1.0f32; number_of_ones];
+        Tensor::new(one_contents, shape)
     }
 
     pub fn numel(&self) -> usize {
