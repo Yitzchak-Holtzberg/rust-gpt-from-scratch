@@ -7,18 +7,14 @@ The file to open is listed — everything else is already stubbed out.
 
 ---
 
-### Phase 1 — Tensor engine
+### Phase 1 — Tensor engine ✅ COMPLETE
 **File:** `src/tensor/mod.rs`
 
-Implement every method on `Tensor`: `new`, `zeros`, `ones`, `reshape`,
+All methods implemented and tested: `new`, `zeros`, `ones`, `reshape`,
 `transpose_2d`, `add`, `mul`, `scale`, `matmul`, `softmax`, `layer_norm`,
 `gelu`, `causal_mask`.
 
-This is pure math — no ML concepts yet. Start with `matmul` and `softmax`.
-Everything downstream depends on getting shapes right here.
-
-**Check your work:** write a small `#[test]` that multiplies two known
-matrices and asserts the result. If `matmul` is wrong, nothing else will work.
+All tests in `tests/tensor_tests.rs` passing.
 
 **Read:**
 - Layer norm paper: https://arxiv.org/abs/1607.06450
@@ -27,11 +23,18 @@ matrices and asserts the result. If `matmul` is wrong, nothing else will work.
 
 ---
 
-### Phase 2 — Tokenizer and dataset
+### Phase 2 — Tokenizer and dataset 🔄 IN PROGRESS
 **File:** `src/tokenizer/mod.rs`
 
-Implement `CharTokenizer::from_text`, `encode`, `decode`, and the `Dataset`
-struct. The dataset returns sliding windows of (input, target) token pairs
+Tests written in `tests/tokenizer_tests.rs`. Implement:
+- [x] Tests written (TDD — tests exist, implementations are `todo!()`)
+- [ ] `CharTokenizer::from_text` — collect unique chars, sort, build `HashMap`
+- [ ] `vocab_size` — return `self.vocab.len()`
+- [ ] `encode` — map each char to its ID, drop unknowns
+- [ ] `decode` — map each ID back to char, join into String
+- [ ] `Dataset::new`, `num_samples`, `get` — sliding window over token IDs
+
+The dataset returns sliding windows of (input, target) token pairs
 where target is input shifted right by one position.
 
 **Get training data:**

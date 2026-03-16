@@ -262,5 +262,104 @@ fn test_causal_mask_above_diagonal_is_neg_inf() {
     assert_eq!(mask.data[5], f32::NEG_INFINITY); // [1,2]
 }
 
+// --- Tensor::softmax_rows ---
+
+#[test]
+fn test_softmax_rows_shape() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+    let result = t.softmax_rows();
+    assert_eq!(result.shape, vec![2, 3]);
+}
+
+#[test]
+fn test_softmax_rows_each_row_sums_to_one() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+    let result = t.softmax_rows();
+    // row 0 should sum to 1.0
+    let row0_sum: f32 = result.data[0..3].iter().sum();
+    assert!((row0_sum - 1.0).abs() < 1e-5, "row 0 sum was {}", row0_sum);
+    // row 1 should sum to 1.0
+    let row1_sum: f32 = result.data[3..6].iter().sum();
+    assert!((row1_sum - 1.0).abs() < 1e-5, "row 1 sum was {}", row1_sum);
+}
+
+#[test]
+fn test_softmax_rows_larger_values_get_higher_weight() {
+    let t = Tensor::new(vec![0.0, 0.0, 10.0, 10.0, 0.0, 0.0], vec![2, 3]);
+    let result = t.softmax_rows();
+    // In row 0, column 2 (value 10) should dominate
+    assert!(result.data[2] > result.data[0]);
+    // In row 1, column 0 (value 10) should dominate
+    assert!(result.data[3] > result.data[5]);
+}
+
+#[test]
+fn test_softmax_rows_independent_per_row() {
+    // Two identical rows should produce identical results
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0], vec![2, 3]);
+    let result = t.softmax_rows();
+    assert!((result.data[0] - result.data[3]).abs() < 1e-6);
+    assert!((result.data[1] - result.data[4]).abs() < 1e-6);
+    assert!((result.data[2] - result.data[5]).abs() < 1e-6);
+}
+
+// --- Tensor::add_bias ---
+
+#[test]
+fn test_add_bias_shape() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+    let bias = Tensor::new(vec![10.0, 20.0, 30.0], vec![3]);
+    let result = t.add_bias(&bias);
+    assert_eq!(result.shape, vec![2, 3]);
+}
+
+#[test]
+fn test_add_bias_values() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+    let bias = Tensor::new(vec![10.0, 20.0, 30.0], vec![3]);
+    let result = t.add_bias(&bias);
+    // row 0: [1+10, 2+20, 3+30] = [11, 22, 33]
+    // row 1: [4+10, 5+20, 6+30] = [14, 25, 36]
+    assert_eq!(result.data, vec![11.0, 22.0, 33.0, 14.0, 25.0, 36.0]);
+}
+
+#[test]
+fn test_add_bias_single_row() {
+    let t = Tensor::new(vec![5.0, 6.0], vec![1, 2]);
+    let bias = Tensor::new(vec![0.5, 0.5], vec![2]);
+    let result = t.add_bias(&bias);
+    assert_eq!(result.data, vec![5.5, 6.5]);
+}
+
+#[test]
+#[should_panic]
+fn test_add_bias_wrong_size_panics() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    let bias = Tensor::new(vec![1.0, 2.0, 3.0], vec![3]);
+    t.add_bias(&bias);
+}
+
+// --- Tensor::slice_cols ---
+
+/// Slicing columns 1..3 from a [2, 4] tensor should give [2, 2].
+#[test]
+fn test_slice_cols_shape() {
+    // Row 0: [1, 2, 3, 4]
+    // Row 1: [5, 6, 7, 8]
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 4]);
+    let sliced = t.slice_cols(1, 3);
+    assert_eq!(sliced.shape, vec![2, 2]);
+}
+
+/// Values should be columns 1 and 2 from each row.
+#[test]
+fn test_slice_cols_values() {
+    // Row 0: [1, 2, 3, 4]  → cols 1..3 → [2, 3]
+    // Row 1: [5, 6, 7, 8]  → cols 1..3 → [6, 7]
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 4]);
+    let sliced = t.slice_cols(1, 3);
+    assert_eq!(sliced.data, vec![2.0, 3.0, 6.0, 7.0]);
+}
+
 // --- Tensor::ones ---
 // Write your test here before implementing ones!

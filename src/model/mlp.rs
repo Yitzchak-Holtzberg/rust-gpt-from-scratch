@@ -1,5 +1,5 @@
-use crate::tensor::Tensor;
 use crate::model::config::Config;
+use crate::tensor::Tensor;
 
 pub struct MlpWeights {
     pub w_fc: Tensor,   // [embed_dim, embed_dim * mlp_ratio]
@@ -10,7 +10,14 @@ pub struct MlpWeights {
 
 impl MlpWeights {
     pub fn zeros(cfg: &Config) -> Self {
-        todo!()
+        let embed_dim = cfg.embed_dim;
+        let mlp_dim = embed_dim * cfg.mlp_ratio;
+        MlpWeights {
+            w_fc: Tensor::zeros(vec![embed_dim, mlp_dim]),
+            b_fc: Tensor::zeros(vec![mlp_dim]),
+            w_proj: Tensor::zeros(vec![mlp_dim, embed_dim]),
+            b_proj: Tensor::zeros(vec![embed_dim]),
+        }
     }
 }
 
@@ -21,6 +28,11 @@ impl MlpWeights {
 ///   1. x @ w_fc + b_fc  -> [T, 4D]
 ///   2. gelu(...)
 ///   3. x @ w_proj + b_proj -> [T, D]
-pub fn mlp_forward(x: &Tensor, w: &MlpWeights, cfg: &Config) -> Tensor {
-    todo!()
+pub fn mlp_forward(x: &Tensor, w: &MlpWeights) -> Tensor {
+    x
+        .matmul(&w.w_fc)
+        .add_bias(&w.b_fc)
+        .gelu()
+        .matmul(&w.w_proj)
+        .add_bias(&w.b_proj)
 }

@@ -7,7 +7,7 @@ pub struct Tensor {
 
 impl Tensor {
     pub fn new(data: Vec<f32>, shape: Vec<usize>) -> Self {
-        let expected_len = shape.iter().product();
+        let expected_len: usize = shape.iter().product();
         assert_eq!(data.len(), expected_len, "Data length doesn't match shape");
         Tensor { data, shape }
     }
@@ -66,13 +66,46 @@ impl Tensor {
         }
     }
 
+    /// Extract a column range from a 2D tensor [T, D] -> [T, end-start].
+    pub fn slice_cols(&self, start: usize, end: usize) -> Self {
+        let rows = self.shape[0];
+        let cols = self.shape[1];
+        let mut new_data = Vec::new();
+        for row in 0..rows {
+            new_data.extend_from_slice(&self.data[row * cols + start..row * cols + end]);
+        }
+        Tensor {
+            data: new_data,
+            shape: vec![rows, end - start],
+        }
+    }
+
+    /// Add a 1D bias [N] to every row of a 2D tensor [rows, N].
+    pub fn add_bias(&self, bias: &Tensor) -> Self {
+        assert_eq!(self.ndim(), 2, "tensor must be 2D");
+        assert_eq!(bias.ndim(), 1, "bias must be 1D");
+        assert_eq!(
+            self.shape[1], bias.shape[0],
+            "bias length must match number of columns"
+        );
+        let rows = self.shape[0];
+        let cols = self.shape[1];
+        let mut result = vec![0.0f32; rows * cols];
+        for row in 0..rows {
+            for col in 0..cols {
+                result[row * cols + col] = self.data[row * cols + col] + bias.data[col]
+            }
+        }
+
+        Tensor {
+            shape: self.shape.clone(),
+            data: result,
+        }
+    }
+
     /// Elementwise add. Shapes must match.
     pub fn add(&self, other: &Tensor) -> Self {
-        assert_eq!(
-            self.shape,
-            other.shape,
-            "vectors to add don't match"
-        );
+        assert_eq!(self.shape, other.shape, "vectors to add don't match");
 
         let new_totaled_data = self
             .data
@@ -88,11 +121,7 @@ impl Tensor {
 
     /// Elementwise multiply. Shapes must match.
     pub fn mul(&self, other: &Tensor) -> Self {
-        assert_eq!(
-            self.shape,
-            other.shape,
-            "vectors to multiply don't match"
-        );
+        assert_eq!(self.shape, other.shape, "vectors to multiply don't match");
 
         let new_totaled_data = self
             .data
@@ -136,6 +165,28 @@ impl Tensor {
         Tensor {
             data: result,
             shape: vec![length_i, length_j],
+        }
+    }
+
+    /// Softmax independently per row of a 2D tensor [rows, N].
+    /// Each row's values will sum to 1.0.
+    pub fn softmax_rows(&self) -> Self {
+        assert_eq!(self.ndim(), 2, "tensor must be 2D");
+        let rows = self.shape[0];
+        let cols = self.shape[1];
+        let mut result = Vec::new();
+        for row in 0..rows {
+            let exps: Vec<f32> = self.data[row * cols..row * cols + cols]
+                .iter()
+                .map(|a| a.exp())
+                .collect();
+            let sum: f32 = exps.iter().sum();
+            result.extend(exps.iter().map(|e| e / sum));
+        }
+
+        Tensor {
+            shape: self.shape.clone(),
+            data: result,
         }
     }
 

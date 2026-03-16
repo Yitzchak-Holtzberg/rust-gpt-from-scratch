@@ -4,7 +4,7 @@ use crate::model::block::{BlockWeights, block_forward};
 
 pub struct GptWeights {
     pub tok_embed: Tensor,  // [vocab_size, embed_dim]
-    pub pos_embed: Tensor,  // [context_len, embed_dim]
+    pub pos_embed: Tensor,  // [context_numel, embed_dim]
     pub blocks: Vec<BlockWeights>,
     pub ln_f_w: Tensor,     // [embed_dim]
     pub ln_f_b: Tensor,     // [embed_dim]
@@ -13,17 +13,29 @@ pub struct GptWeights {
 
 impl GptWeights {
     pub fn zeros(cfg: &Config) -> Self {
-        todo!()
+        GptWeights {
+            tok_embed: Tensor::zeros(vec![cfg.vocab_size, cfg.embed_dim]),
+            pos_embed: Tensor::zeros(vec![cfg.context_len, cfg.embed_dim]),
+            blocks: (0..cfg.num_layers).map(|_| BlockWeights::zeros(cfg)).collect(),
+            ln_f_w: Tensor::ones(vec![cfg.embed_dim]),
+            ln_f_b: Tensor::zeros(vec![cfg.embed_dim]),
+            lm_head: Tensor::zeros(vec![cfg.embed_dim, cfg.vocab_size]),
+        }
     }
 
     /// Total number of scalar parameters in the model.
     pub fn num_params(&self) -> usize {
-        todo!()
+        self.blocks.iter().map(|b| {
+            b.ln1_w.numel() + b.ln1_b.numel() + b.attn.w_qkv.numel() + b.attn.b_qkv.numel() +
+            b.attn.w_proj.numel() + b.attn.b_proj.numel() + b.ln2_w.numel() + b.ln2_b.numel() +
+            b.mlp.w_fc.numel() + b.mlp.b_fc.numel() + b.mlp.w_proj.numel() + b.mlp.b_proj.numel()
+        }).sum::<usize>() +
+        self.tok_embed.numel() + self.pos_embed.numel() + self.ln_f_w.numel() + self.ln_f_b.numel() + self.lm_head.numel()
     }
 }
 
 /// Full GPT forward pass.
-/// tokens: &[usize] of length T
+/// tokens: &[usize] of numelgth T
 /// returns logits: [T, vocab_size]
 ///
 /// Steps:
