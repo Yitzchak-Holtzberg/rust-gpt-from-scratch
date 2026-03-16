@@ -194,16 +194,16 @@ fn test_softmax_largest_gets_highest_prob() {
 
 #[test]
 fn test_layer_norm_shape_preserved() {
-    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![1, 4]);
     let weight = Tensor::ones(vec![4]);
     let bias = Tensor::zeros(vec![4]);
     let result = t.layer_norm(&weight, &bias);
-    assert_eq!(result.shape, vec![4]);
+    assert_eq!(result.shape, vec![1, 4]);
 }
 
 #[test]
 fn test_layer_norm_zero_mean() {
-    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![1, 4]);
     let weight = Tensor::ones(vec![4]);
     let bias = Tensor::zeros(vec![4]);
     let result = t.layer_norm(&weight, &bias);
@@ -359,6 +359,44 @@ fn test_slice_cols_values() {
     let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 4]);
     let sliced = t.slice_cols(1, 3);
     assert_eq!(sliced.data, vec![2.0, 3.0, 6.0, 7.0]);
+}
+
+// --- Tensor::concat_cols ---
+
+/// Concatenating [2, 2] and [2, 2] should give [2, 4].
+#[test]
+fn test_concat_cols_shape() {
+    let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
+    let result = a.concat_cols(&b);
+    assert_eq!(result.shape, vec![2, 4]);
+}
+
+/// Row 0 of a=[1,2], row 0 of b=[5,6] → combined row 0 = [1,2,5,6].
+#[test]
+fn test_concat_cols_values() {
+    let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
+    let result = a.concat_cols(&b);
+    assert_eq!(result.data, vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0]);
+}
+
+// --- slice_rows ---
+
+/// Picking rows 1 and 0 (in that order) from a [3, 2] tensor returns [2, 2].
+#[test]
+fn test_slice_rows_shape() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2]);
+    let result = t.slice_rows(&[1, 0]);
+    assert_eq!(result.shape, vec![2, 2]);
+}
+
+/// Row 1 is [3,4], row 0 is [1,2] — result should be [[3,4],[1,2]].
+#[test]
+fn test_slice_rows_values() {
+    let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2]);
+    let result = t.slice_rows(&[1, 0]);
+    assert_eq!(result.data, vec![3.0, 4.0, 1.0, 2.0]);
 }
 
 // --- Tensor::ones ---

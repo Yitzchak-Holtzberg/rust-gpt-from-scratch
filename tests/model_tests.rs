@@ -1,4 +1,5 @@
 use nano_gpt_rs::model::attention::{attention_forward, AttentionWeights};
+use nano_gpt_rs::model::block::{block_forward, BlockWeights};
 use nano_gpt_rs::model::config::Config;
 use nano_gpt_rs::model::mlp::{mlp_forward, MlpWeights};
 use nano_gpt_rs::tensor::Tensor;
@@ -28,6 +29,21 @@ fn test_attention_output_shape() {
     let x = Tensor::zeros(vec![t, cfg.embed_dim]);
 
     let out = attention_forward(&x, &w, &cfg);
+
+    assert_eq!(out.shape, vec![t, cfg.embed_dim]);
+}
+
+// --- block_forward ---
+
+/// Output shape must be [T, D] — same as input.
+#[test]
+fn test_block_output_shape() {
+    let cfg = Config::nano();
+    let w = BlockWeights::zeros(&cfg);
+    let t = 4;
+    let x = Tensor::zeros(vec![t, cfg.embed_dim]);
+
+    let out = block_forward(&x, &w, &cfg);
 
     assert_eq!(out.shape, vec![t, cfg.embed_dim]);
 }

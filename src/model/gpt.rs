@@ -26,8 +26,8 @@ impl GptWeights {
     /// Total number of scalar parameters in the model.
     pub fn num_params(&self) -> usize {
         self.blocks.iter().map(|b| {
-            b.ln1_w.numel() + b.ln1_b.numel() + b.attn.w_qkv.numel() + b.attn.b_qkv.numel() +
-            b.attn.w_proj.numel() + b.attn.b_proj.numel() + b.ln2_w.numel() + b.ln2_b.numel() +
+            b.ln1_weight.numel() + b.ln1_bias.numel() + b.attn.w_qkv.numel() + b.attn.b_qkv.numel() +
+            b.attn.w_proj.numel() + b.attn.b_proj.numel() + b.ln2_weight.numel() + b.ln2_bias.numel() +
             b.mlp.w_fc.numel() + b.mlp.b_fc.numel() + b.mlp.w_proj.numel() + b.mlp.b_proj.numel()
         }).sum::<usize>() +
         self.tok_embed.numel() + self.pos_embed.numel() + self.ln_f_w.numel() + self.ln_f_b.numel() + self.lm_head.numel()

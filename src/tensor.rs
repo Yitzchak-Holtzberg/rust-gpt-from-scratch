@@ -32,6 +32,16 @@ impl Tensor {
         self.shape.len()
     }
 
+    /// Get row i as a slice. Only valid for 2D tensors.
+    /// Returns a slice representing row `i`.
+    pub fn row(&self, i: usize) -> &[f32] {
+        assert_eq!(self.ndim(), 2, "row() is only valid for 2D tensors");
+        self.data
+            .chunks_exact(self.shape[1])
+            .nth(i)
+            .expect("row index out of bounds")
+    }
+
     /// Reinterpret data as a different shape. No data copy.
     pub fn reshape(&self, new_shape: Vec<usize>) -> Self {
         assert_eq!(
@@ -66,17 +76,43 @@ impl Tensor {
         }
     }
 
+    /// Select rows by index from a 2D tensor [N, D] -> [T, D].
+    pub fn slice_rows(&self, indices: &[usize]) -> Self {
+        let mut result_data = Vec::new();
+        for &index in indices {
+            result_data.extend_from_slice(self.row(index));
+        }
+        Tensor {
+            data: result_data,
+            shape: vec![indices.len(), self.shape[1]],
+        }
+    }
+
     /// Extract a column range from a 2D tensor [T, D] -> [T, end-start].
     pub fn slice_cols(&self, start: usize, end: usize) -> Self {
         let rows = self.shape[0];
-        let cols = self.shape[1];
         let mut new_data = Vec::new();
-        for row in 0..rows {
-            new_data.extend_from_slice(&self.data[row * cols + start..row * cols + end]);
+        for i in 0..rows {
+            new_data.extend_from_slice(&self.row(i)[start..end]);
         }
         Tensor {
             data: new_data,
             shape: vec![rows, end - start],
+        }
+    }
+
+    /// Concatenate columns of two 2D tensors [T, A] and [T, B] -> [T, A+B].
+    pub fn concat_cols(&self, other: &Tensor) -> Self {
+        let rows = self.shape[0];
+        let mut new_data = Vec::new();
+        // For each row, take all columns from self then all columns from other.
+        for i in 0..rows {
+            new_data.extend_from_slice(self.row(i));
+            new_data.extend_from_slice(other.row(i));
+        }
+        Tensor {
+            data: new_data,
+            shape: vec![rows, self.shape[1] + other.shape[1]],
         }
     }
 
@@ -89,17 +125,19 @@ impl Tensor {
             "bias length must match number of columns"
         );
         let rows = self.shape[0];
-        let cols = self.shape[1];
-        let mut result = vec![0.0f32; rows * cols];
-        for row in 0..rows {
-            for col in 0..cols {
-                result[row * cols + col] = self.data[row * cols + col] + bias.data[col]
-            }
+        let mut new_data = Vec::new();
+        for i in 0..rows {
+            let updated_row: Vec<f32> = self
+                .row(i)
+                .iter()
+                .zip(bias.data.iter())
+                .map(|(a, b)| a + b)
+                .collect();
+            new_data.extend_from_slice(&updated_row);
         }
-
         Tensor {
             shape: self.shape.clone(),
-            data: result,
+            data: new_data,
         }
     }
 
@@ -173,13 +211,9 @@ impl Tensor {
     pub fn softmax_rows(&self) -> Self {
         assert_eq!(self.ndim(), 2, "tensor must be 2D");
         let rows = self.shape[0];
-        let cols = self.shape[1];
         let mut result = Vec::new();
-        for row in 0..rows {
-            let exps: Vec<f32> = self.data[row * cols..row * cols + cols]
-                .iter()
-                .map(|a| a.exp())
-                .collect();
+        for i in 0..rows {
+            let exps: Vec<f32> = self.row(i).iter().map(|a| a.exp()).collect();
             let sum: f32 = exps.iter().sum();
             result.extend(exps.iter().map(|e| e / sum));
         }
@@ -203,23 +237,27 @@ impl Tensor {
 
     /// Layer norm over the last dimension with learned weight and bias.
     pub fn layer_norm(&self, weight: &Tensor, bias: &Tensor) -> Self {
-        let mean = self.data.iter().sum::<f32>() / self.numel() as f32;
-        let variance =
-            self.data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / self.numel() as f32;
-        let sqrt_variance = variance.sqrt();
-        let normalized: Vec<f32> = self
-            .data
-            .iter()
-            .map(|x| (x - mean) / (sqrt_variance + 1e-5))
-            .collect();
-        let final_data = normalized
-            .iter()
-            .zip(weight.data.iter())
-            .zip(bias.data.iter())
-            .map(|((n, w), b)| n * w + b)
-            .collect();
+        // Require 2D input — we normalise each token (row) independently
+        let [rows, cols] = self.shape[..] else {
+            panic!("expected 2D tensor")
+        };
+        let mut out_data = Vec::with_capacity(rows * cols);
+
+        for i in 0..rows {
+            let row = self.row(i);
+
+            // Compute mean and variance across this token's embedding vector
+            let mean = row.iter().sum::<f32>() / cols as f32;
+            let variance = row.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / cols as f32;
+            let std = (variance + 1e-5).sqrt(); // 1e-5 prevents division by zero
+
+            // Normalise, then apply learned scale (weight) and shift (bias) per dimension
+            out_data
+                .extend((0..cols).map(|j| (row[j] - mean) / std * weight.data[j] + bias.data[j]));
+        }
+
         Tensor {
-            data: final_data,
+            data: out_data,
             shape: self.shape.clone(),
         }
     }
