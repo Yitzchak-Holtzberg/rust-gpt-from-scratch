@@ -401,3 +401,40 @@ fn test_slice_rows_values() {
 
 // --- Tensor::ones ---
 // Write your test here before implementing ones!
+
+// --- Backward passes ---
+
+#[test]
+fn test_add_backward_passes_gradient_through() {
+    // z = a + b, so dL/da = grad_out and dL/db = grad_out
+    let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
+    let grad_out = Tensor::new(vec![0.1, 0.2, 0.3, 0.4], vec![2, 2]);
+
+    let (grad_a, grad_b) = a.add_backward(&b, &grad_out);
+    assert_eq!(grad_a.data, grad_out.data);
+    assert_eq!(grad_b.data, grad_out.data);
+}
+
+#[test]
+fn test_scale_backward_scales_gradient() {
+    // z = x * 3.0, so dL/dx = grad_out * 3.0
+    let x = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    let grad_out = Tensor::new(vec![1.0, 1.0, 1.0, 1.0], vec![2, 2]);
+
+    let grad_x = x.scale_backward(3.0, &grad_out);
+    assert_eq!(grad_x.data, vec![3.0, 3.0, 3.0, 3.0]);
+}
+
+#[test]
+fn test_transpose_2d_backward_transposes_gradient() {
+    // z = x^T, so dL/dx = grad_out^T
+    let x = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+    // grad_out has shape [3, 2] (same as x^T)
+    let grad_out = Tensor::new(vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6], vec![3, 2]);
+
+    let grad_x = x.transpose_2d_backward(&grad_out);
+    assert_eq!(grad_x.shape, vec![2, 3]);
+    // transposing [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]] gives [[0.1, 0.3, 0.5], [0.2, 0.4, 0.6]]
+    assert_eq!(grad_x.data, vec![0.1, 0.3, 0.5, 0.2, 0.4, 0.6]);
+}

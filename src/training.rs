@@ -19,6 +19,18 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> f32 {
     total / row_count as f32
 }
 
+/// Fused cross-entropy forward + dLoss/dLogits.
+/// Returns `(mean_loss, grad_logits)` where `grad_logits` has shape `[T, vocab_size]`.
+/// For each row: grad = softmax(logits) then subtract 1 at the target index, averaged over T.
+pub fn cross_entropy_loss_backward(logits: &Tensor, targets: &[usize]) -> (f32, Tensor) {
+    assert_eq!(logits.ndim(), 2, "logits must be 2D");
+    assert_eq!(
+        logits.shape[0],
+        targets.len(),
+        "targets length must match logits rows"
+    );
+    todo!()
+}
 /// AdamW optimizer state. One m and v entry per parameter.
 pub struct Adam {
     pub learning_rate: f32,
@@ -56,7 +68,21 @@ impl Adam {
     ///   v_hat = v / (1 - beta2^t)
     ///   param -= learning_rate * m_hat / (sqrt(v_hat) + eps)
     pub fn step(&mut self, params: &mut [f32], grads: &[f32]) {
-        todo!()
+        self.t += 1;
+        for i in 0..params.len() {
+            //   g = grad + weight_decay * param   (AdamW decoupled decay)
+            let g = grads[i] + self.weight_decay * params[i];
+            //   m = beta1 * m + (1 - beta1) * g
+            self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * g;
+            //   v = beta2 * v + (1 - beta2) * g^2
+            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * g.powi(2);
+            //   m_hat = m / (1 - beta1^t)
+            let m_hat = self.m[i] / (1.0 - self.beta1.powi(self.t as i32));
+            //   v_hat = v / (1 - beta2^t)
+            let v_hat = self.v[i] / (1.0 - self.beta2.powi(self.t as i32));
+            //   param -= learning_rate * m_hat / (sqrt(v_hat) + eps)
+            params[i] -= self.learning_rate * m_hat / (v_hat.sqrt() + self.eps);
+        }
     }
 }
 
