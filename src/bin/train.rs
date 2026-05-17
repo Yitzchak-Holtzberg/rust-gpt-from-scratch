@@ -27,6 +27,10 @@ fn main() -> candle_core::Result<()> {
         .get(2)
         .and_then(|argument| argument.parse().ok())
         .unwrap_or(500);
+    let batch_size: usize = arguments
+        .get(3)
+        .and_then(|argument| argument.parse().ok())
+        .unwrap_or(16);
 
     let training_text = fs::read_to_string(training_text_path)
         .unwrap_or_else(|_| panic!("Could not read {training_text_path}"));
@@ -62,27 +66,36 @@ fn main() -> candle_core::Result<()> {
     println!("Total parameters: {total_parameter_count}");
     println!("Total training samples: {}", dataset.num_samples());
     println!("Context length: {}", config.context_len);
+    println!("Batch size: {batch_size}");
     println!("Training for {number_of_training_steps} steps\n");
 
     let mut rng = rand::thread_rng();
     let all_sample_indices: Vec<usize> = (0..dataset.num_samples()).collect();
     let training_started_at = Instant::now();
+    let vocab_size = config.vocab_size;
+    let context_len = config.context_len;
 
     for step in 1..=number_of_training_steps {
-        // Pick a random sliding window from the corpus
-        let &sample_index = all_sample_indices.choose(&mut rng).unwrap();
-        let (input_token_ids, target_token_ids) = dataset.get(sample_index);
+        // Stack `batch_size` random sliding windows into a single batch.
+        // Layout: input_buffer is row-major [B, T] flattened.
+        let mut input_buffer: Vec<u32> = Vec::with_capacity(batch_size * context_len);
+        let mut target_buffer: Vec<u32> = Vec::with_capacity(batch_size * context_len);
+        for _ in 0..batch_size {
+            let &sample_index = all_sample_indices.choose(&mut rng).unwrap();
+            let (input_token_ids, target_token_ids) = dataset.get(sample_index);
+            input_buffer.extend(input_token_ids.iter().map(|id| *id as u32));
+            target_buffer.extend(target_token_ids.iter().map(|id| *id as u32));
+        }
 
-        // candle uses u32 for token indices, so convert from our usize-based tokenizer
-        let input_as_u32: Vec<u32> = input_token_ids.iter().map(|id| *id as u32).collect();
-        let target_as_u32: Vec<u32> = target_token_ids.iter().map(|id| *id as u32).collect();
+        let input_tensor = Tensor::from_vec(input_buffer, (batch_size, context_len), &device)?;
+        // cross_entropy expects flat targets [N], so we leave the target buffer flat.
+        let target_tensor =
+            Tensor::from_vec(target_buffer, (batch_size * context_len,), &device)?;
 
-        let input_tensor = Tensor::from_vec(input_as_u32, (config.context_len,), &device)?;
-        let target_tensor = Tensor::from_vec(target_as_u32, (config.context_len,), &device)?;
-
-        // Forward pass → cross-entropy loss → autograd computes gradients and AdamW applies them
+        // Forward [B, T] → [B, T, V] → flatten to [B*T, V] for the loss
         let logits = model.forward(&input_tensor)?;
-        let loss = cross_entropy(&logits, &target_tensor)?;
+        let logits_flat = logits.reshape((batch_size * context_len, vocab_size))?;
+        let loss = cross_entropy(&logits_flat, &target_tensor)?;
         optimizer.backward_step(&loss)?;
 
         if step == 1 || step % 25 == 0 || step == number_of_training_steps {

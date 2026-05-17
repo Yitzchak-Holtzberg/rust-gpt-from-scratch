@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>nano-gpt-rs</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --good: #3fb950;
+      --warn: #d29922;
+      --bad: #f85149;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 26px;
+      font-weight: 600;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 36px;
+      text-align: center;
+      color: var(--muted);
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, 0.08);
+      color: var(--text);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 18px;
+      margin-top: 4px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls label { color: var(--muted); font-size: 13px; }
+    input, textarea, button {
+      font-family: inherit;
+      font-size: 14px;
+    }
+    input[type="number"], input[type="text"], textarea {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    input[type="number"] { width: 90px; }
+    button {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    button:not(:disabled):hover { filter: brightness(1.1); }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--good);
+      width: 0%;
+      transition: width 0.2s;
+    }
+    .loss-chart {
+      width: 100%;
+      height: 120px;
+      margin-top: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .prompt-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .prompt-row input[type="text"] { flex: 1; }
+    .output {
+      font-family: var(--mono);
+      white-space: pre-wrap;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      min-height: 60px;
+      max-height: 360px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    .status-msg {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+    .status-msg.error { color: var(--bad); }
+    .status-msg.good { color: var(--good); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>nano-gpt-rs</h1>
+    <div class="subtitle">Train a tiny character-level GPT on any text file, then chat with it.</div>
+
+    <div class="panel">
+      <h2>1. Upload corpus</h2>
+      <div class="drop-zone" id="dropZone">
+        Drop a .txt file here, or click to choose one
+        <input type="file" id="fileInput" accept=".txt,text/plain" hidden />
+      </div>
+      <div class="status-msg" id="uploadStatus"></div>
+
+      <div class="stats-grid" id="statsGrid" style="display: none;">
+        <div class="stat"><div class="stat-label">Vocab size</div><div class="stat-value" id="statVocab">—</div></div>
+        <div class="stat"><div class="stat-label">Parameters</div><div class="stat-value" id="statParams">—</div></div>
+        <div class="stat"><div class="stat-label">Samples</div><div class="stat-value" id="statSamples">—</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>2. Train</h2>
+      <div class="controls">
+        <label>Steps: <input type="number" id="stepsInput" value="500" min="1" max="100000" /></label>
+        <label>Batch size: <input type="number" id="batchInput" value="16" min="1" max="128" /></label>
+        <label>Learning rate: <input type="number" id="lrInput" value="0.0003" step="0.0001" min="0.00001" /></label>
+        <button id="trainBtn" disabled>Train</button>
+      </div>
+      <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="status-msg" id="trainStatus"></div>
+      <svg class="loss-chart" id="lossChart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="panel">
+      <h2>3. Ask a question</h2>
+      <div class="prompt-row">
+        <input type="text" id="promptInput" placeholder='e.g. "ROMEO:"' />
+        <input type="number" id="tokensInput" value="200" min="1" max="2000" />
+        <button id="generateBtn" disabled>Generate</button>
+      </div>
+      <div class="output" id="output">No output yet.</div>
+      <div class="status-msg" id="generateStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    const elements = {
+      dropZone: document.getElementById("dropZone"),
+      fileInput: document.getElementById("fileInput"),
+      uploadStatus: document.getElementById("uploadStatus"),
+      statsGrid: document.getElementById("statsGrid"),
+      statVocab: document.getElementById("statVocab"),
+      statParams: document.getElementById("statParams"),
+      statSamples: document.getElementById("statSamples"),
+      stepsInput: document.getElementById("stepsInput"),
+      batchInput: document.getElementById("batchInput"),
+      lrInput: document.getElementById("lrInput"),
+      trainBtn: document.getElementById("trainBtn"),
+      progressFill: document.getElementById("progressFill"),
+      trainStatus: document.getElementById("trainStatus"),
+      lossChart: document.getElementById("lossChart"),
+      promptInput: document.getElementById("promptInput"),
+      tokensInput: document.getElementById("tokensInput"),
+      generateBtn: document.getElementById("generateBtn"),
+      output: document.getElementById("output"),
+      generateStatus: document.getElementById("generateStatus"),
+    };
+
+    let pollHandle = null;
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat().format(value);
+    }
+
+    function setStatus(node, message, severity) {
+      node.textContent = message;
+      node.className = "status-msg" + (severity ? " " + severity : "");
+    }
+
+    // ----- file upload -----
+
+    elements.dropZone.addEventListener("click", () => elements.fileInput.click());
+
+    elements.dropZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      elements.dropZone.classList.add("dragover");
+    });
+    elements.dropZone.addEventListener("dragleave", () => {
+      elements.dropZone.classList.remove("dragover");
+    });
+    elements.dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      elements.dropZone.classList.remove("dragover");
+      const file = event.dataTransfer.files[0];
+      if (file) uploadFile(file);
+    });
+    elements.fileInput.addEventListener("change", () => {
+      const file = elements.fileInput.files[0];
+      if (file) uploadFile(file);
+    });
+
+    async function uploadFile(file) {
+      setStatus(elements.uploadStatus, `Uploading "${file.name}"...`);
+      const text = await file.text();
+      try {
+        const response = await fetch("/api/upload", { method: "POST", body: text });
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        elements.statVocab.textContent = formatNumber(data.vocab_size);
+        elements.statParams.textContent = formatNumber(data.total_parameters);
+        elements.statSamples.textContent = formatNumber(data.total_samples);
+        elements.statsGrid.style.display = "grid";
+        elements.trainBtn.disabled = false;
+        elements.generateBtn.disabled = false;
+        setStatus(elements.uploadStatus,
+          `Loaded "${file.name}" - fresh model initialized.`, "good");
+        resetTrainingUi();
+      } catch (err) {
+        setStatus(elements.uploadStatus, `Upload failed: ${err.message}`, "error");
+      }
+    }
+
+    // ----- training -----
+
+    elements.trainBtn.addEventListener("click", async () => {
+      const steps = parseInt(elements.stepsInput.value, 10);
+      const batchSize = parseInt(elements.batchInput.value, 10);
+      const learningRate = parseFloat(elements.lrInput.value);
+      if (!Number.isFinite(steps) || steps < 1) return;
+
+      elements.trainBtn.disabled = true;
+      elements.generateBtn.disabled = true;
+      setStatus(elements.trainStatus, "Starting training...");
+      try {
+        const response = await fetch("/api/train", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            steps,
+            batch_size: batchSize,
+            learning_rate: learningRate,
+          }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+        startPolling();
+      } catch (err) {
+        setStatus(elements.trainStatus, `Could not start: ${err.message}`, "error");
+        elements.trainBtn.disabled = false;
+        elements.generateBtn.disabled = false;
+      }
+    });
+
+    function startPolling() {
+      if (pollHandle) clearInterval(pollHandle);
+      pollHandle = setInterval(refreshStatus, 400);
+      refreshStatus();
+    }
+
+    function stopPolling() {
+      if (pollHandle) clearInterval(pollHandle);
+      pollHandle = null;
+    }
+
+    async function refreshStatus() {
+      try {
+        const response = await fetch("/api/status");
+        const status = await response.json();
+        renderTrainingStatus(status);
+        if (!status.is_training) {
+          stopPolling();
+          if (status.current_step > 0) {
+            const finalLoss = status.last_loss != null ? status.last_loss.toFixed(4) : "—";
+            setStatus(elements.trainStatus,
+              `Done. ${status.current_step}/${status.target_steps} steps, final loss ${finalLoss}.`,
+              "good");
+          }
+          elements.trainBtn.disabled = false;
+          elements.generateBtn.disabled = false;
+        }
+      } catch (err) {
+        // network blip; keep polling
+      }
+    }
+
+    function renderTrainingStatus(status) {
+      // Populate stats panel and enable buttons whenever a corpus is loaded
+      if (status.corpus_loaded) {
+        elements.statVocab.textContent = formatNumber(status.vocab_size);
+        elements.statParams.textContent = formatNumber(status.total_parameters);
+        elements.statSamples.textContent = formatNumber(status.total_samples);
+        elements.statsGrid.style.display = "grid";
+        if (!status.is_training) {
+          elements.trainBtn.disabled = false;
+          elements.generateBtn.disabled = false;
+        }
+        if (!elements.uploadStatus.textContent) {
+          setStatus(elements.uploadStatus,
+            "Corpus loaded - drop a different file to replace it.", "good");
+        }
+      }
+
+      const progressPercent = status.target_steps > 0
+        ? (status.current_step / status.target_steps) * 100
+        : 0;
+      elements.progressFill.style.width = `${progressPercent.toFixed(1)}%`;
+      if (status.is_training) {
+        const loss = status.last_loss != null ? status.last_loss.toFixed(4) : "—";
+        setStatus(elements.trainStatus,
+          `step ${status.current_step}/${status.target_steps} - loss ${loss} - ${status.steps_per_second.toFixed(1)} steps/s`);
+      }
+      drawLossChart(status.recent_losses);
+    }
+
+    function drawLossChart(losses) {
+      const svg = elements.lossChart;
+      svg.innerHTML = "";
+      if (!losses || losses.length === 0) return;
+
+      const width = 600;
+      const height = 120;
+      const padding = 8;
+      const minLoss = Math.min(...losses);
+      const maxLoss = Math.max(...losses);
+      const range = Math.max(maxLoss - minLoss, 1e-6);
+
+      const points = losses.map((loss, index) => {
+        const x = padding + (index / Math.max(losses.length - 1, 1)) * (width - 2 * padding);
+        const y = padding + (1 - (loss - minLoss) / range) * (height - 2 * padding);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      polyline.setAttribute("points", points);
+      polyline.setAttribute("fill", "none");
+      polyline.setAttribute("stroke", "#3fb950");
+      polyline.setAttribute("stroke-width", "1.5");
+      svg.appendChild(polyline);
+
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", padding);
+      label.setAttribute("y", padding + 12);
+      label.setAttribute("fill", "#8b949e");
+      label.setAttribute("font-size", "11");
+      label.setAttribute("font-family", "ui-monospace, monospace");
+      label.textContent = `min ${minLoss.toFixed(3)}  max ${maxLoss.toFixed(3)}`;
+      svg.appendChild(label);
+    }
+
+    function resetTrainingUi() {
+      elements.progressFill.style.width = "0%";
+      elements.lossChart.innerHTML = "";
+      setStatus(elements.trainStatus, "");
+    }
+
+    // ----- generation -----
+
+    elements.generateBtn.addEventListener("click", async () => {
+      const prompt = elements.promptInput.value || "";
+      const maxNewTokens = parseInt(elements.tokensInput.value, 10);
+      if (!prompt) {
+        setStatus(elements.generateStatus, "Enter a prompt first.", "error");
+        return;
+      }
+      elements.generateBtn.disabled = true;
+      setStatus(elements.generateStatus, "Generating...");
+      try {
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            max_new_tokens: maxNewTokens,
+            temperature: 1.0,
+            top_k: 40,
+          }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        elements.output.textContent = data.output;
+        setStatus(elements.generateStatus, "", "good");
+      } catch (err) {
+        setStatus(elements.generateStatus, `Failed: ${err.message}`, "error");
+      } finally {
+        elements.generateBtn.disabled = false;
+      }
+    });
+
+    // Restore state on page load (in case server is mid-training already)
+    refreshStatus().then(() => {
+      // No corpus yet — buttons stay disabled.
+    });
+  </script>
+</body>
+</html>

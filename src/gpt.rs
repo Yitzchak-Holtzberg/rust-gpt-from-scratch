@@ -55,6 +55,9 @@ struct CausalSelfAttention {
     output_projection: Linear,
     num_heads: usize,
     head_dim: usize,
+    /// Pre-built `[1, 1, context_len, context_len]` mask, shared by every
+    /// forward call so we don't reallocate it per step.
+    causal_mask: Tensor,
 }
 
 impl CausalSelfAttention {
@@ -65,54 +68,61 @@ impl CausalSelfAttention {
             var_builder.pp("qkv"),
         )?;
         let output_projection = linear(config.embed_dim, config.embed_dim, var_builder.pp("proj"))?;
+        let causal_mask = build_causal_mask(config.context_len, var_builder.device())?
+            .reshape((1, 1, config.context_len, config.context_len))?;
         Ok(Self {
             query_key_value_projection,
             output_projection,
             num_heads: config.num_heads,
             head_dim: config.head_dim(),
+            causal_mask,
         })
     }
 
     fn forward(&self, input_embeddings: &Tensor) -> Result<Tensor> {
-        let (sequence_length, embed_dim) = input_embeddings.dims2()?;
+        // input_embeddings: [batch, seq_len, embed_dim]
+        let (batch_size, sequence_length, embed_dim) = input_embeddings.dims3()?;
 
         // One big linear projection produces Q, K, V concatenated along the feature axis
         let query_key_value = self
             .query_key_value_projection
             .forward(input_embeddings)?;
-        let queries = query_key_value.narrow(1, 0, embed_dim)?;
-        let keys = query_key_value.narrow(1, embed_dim, embed_dim)?;
-        let values = query_key_value.narrow(1, 2 * embed_dim, embed_dim)?;
+        let queries = query_key_value.narrow(2, 0, embed_dim)?;
+        let keys = query_key_value.narrow(2, embed_dim, embed_dim)?;
+        let values = query_key_value.narrow(2, 2 * embed_dim, embed_dim)?;
 
-        // Split the embedding dimension into separate attention heads
-        // and reshape so the head axis comes first: [seq, heads, head_dim] → [heads, seq, head_dim]
+        // [B, T, C] → [B, T, H, head_dim] → [B, H, T, head_dim]
         let split_into_heads = |tensor: Tensor| -> Result<Tensor> {
             tensor
-                .reshape((sequence_length, self.num_heads, self.head_dim))?
-                .transpose(0, 1)?
+                .reshape((batch_size, sequence_length, self.num_heads, self.head_dim))?
+                .transpose(1, 2)?
                 .contiguous()
         };
         let queries = split_into_heads(queries)?;
         let keys = split_into_heads(keys)?;
         let values = split_into_heads(values)?;
 
-        // Scaled dot-product attention scores: how much each token attends to every other token
+        // Scaled dot-product attention scores: [B, H, T, T]
         let attention_scale = (self.head_dim as f64).sqrt();
         let attention_scores =
             (queries.matmul(&keys.transpose(D::Minus2, D::Minus1)?)? / attention_scale)?;
 
-        // Apply causal mask so position t can only see positions <= t
-        let causal = build_causal_mask(sequence_length, input_embeddings.device())?;
-        let masked_attention_scores = attention_scores.broadcast_add(&causal)?;
+        // Causal mask is cached at [1, 1, context_len, context_len]; slice to
+        // the current sequence length so generation (which uses shorter
+        // contexts at the start) still works.
+        let causal_mask_4d = self
+            .causal_mask
+            .i((.., .., ..sequence_length, ..sequence_length))?;
+        let masked_attention_scores = attention_scores.broadcast_add(&causal_mask_4d)?;
 
         let attention_weights = softmax_last_dim(&masked_attention_scores)?;
         let weighted_values = attention_weights.matmul(&values)?;
 
-        // Merge heads back into a single embedding dimension
+        // Merge heads: [B, H, T, head_dim] → [B, T, H, head_dim] → [B, T, C]
         let merged = weighted_values
-            .transpose(0, 1)?
+            .transpose(1, 2)?
             .contiguous()?
-            .reshape((sequence_length, embed_dim))?;
+            .reshape((batch_size, sequence_length, embed_dim))?;
 
         self.output_projection.forward(&merged)
     }
@@ -233,15 +243,20 @@ impl Gpt {
 
     /// Forward pass.
     ///
-    /// `token_ids`: shape `[sequence_length]`, integer tensor on the model's device.
-    /// Returns logits of shape `[sequence_length, vocab_size]`.
+    /// `token_ids`: shape `[batch_size, sequence_length]`, integer tensor on the model's device.
+    /// Returns logits of shape `[batch_size, sequence_length, vocab_size]`.
     pub fn forward(&self, token_ids: &Tensor) -> Result<Tensor> {
-        let sequence_length = token_ids.dims1()?;
+        let (_batch_size, sequence_length) = token_ids.dims2()?;
         let position_ids = Tensor::arange(0u32, sequence_length as u32, token_ids.device())?;
 
+        // [B, T] → [B, T, C]
         let token_vectors = self.token_embeddings.forward(token_ids)?;
-        let position_vectors = self.position_embeddings.forward(&position_ids)?;
-        let mut hidden_states = (token_vectors + position_vectors)?;
+        // [T] → [T, C] → [1, T, C] so it broadcasts over the batch axis
+        let position_vectors = self
+            .position_embeddings
+            .forward(&position_ids)?
+            .unsqueeze(0)?;
+        let mut hidden_states = token_vectors.broadcast_add(&position_vectors)?;
 
         for block in &self.transformer_blocks {
             hidden_states = block.forward(&hidden_states)?;
@@ -272,13 +287,14 @@ pub fn generate(
         let context_start = all_tokens.len().saturating_sub(model.config.context_len);
         let context_window = &all_tokens[context_start..];
 
+        // Wrap the single context in a batch of size 1: [T] → [1, T]
         let context_tensor =
-            Tensor::from_slice(context_window, (context_window.len(),), device)?;
-        let logits = model.forward(&context_tensor)?;
+            Tensor::from_slice(context_window, (1, context_window.len()), device)?;
+        let logits = model.forward(&context_tensor)?; // [1, T, V]
 
         // We only need the prediction for the LAST position
-        let last_position_index = logits.dims2()?.0 - 1;
-        let last_position_logits = logits.i(last_position_index)?;
+        let (_batch, seq_len, _vocab) = logits.dims3()?;
+        let last_position_logits = logits.i((0, seq_len - 1))?; // [V]
 
         let next_token = sample_from_logits(&last_position_logits, temperature, top_k, rng)?;
         all_tokens.push(next_token);
