@@ -3,3 +3,5 @@ data/input.txt
 *.bin
 *.safetensors
 Cargo.lock
+vocab.json
+.vscode/

@@ -12,6 +12,10 @@ impl CharTokenizer {
         let unique_chars: HashSet<char> = text.chars().collect();
         let mut vocab: Vec<char> = unique_chars.into_iter().collect();
         vocab.sort_unstable();
+        Self::from_vocab(vocab)
+    }
+
+    pub fn from_vocab(vocab: Vec<char>) -> Self {
         let char_to_id = vocab.iter().enumerate().map(|(i, c)| (*c, i)).collect();
         CharTokenizer { vocab, char_to_id }
     }

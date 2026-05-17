@@ -1,48 +1,108 @@
-/// Training entry point.
-/// Usage: cargo run --release --bin train -- data/input.txt
-///
-/// NOTE: This currently runs the FORWARD pass and computes loss, but cannot
-/// actually train the model — the layer-level backward chain
-/// (gpt_backward / block_backward / attention_backward / mlp_backward) has not
-/// been implemented. See the TODO comment at the bottom of src/training.rs.
-///
-/// For now this serves as a smoke test that the forward pipeline works.
+//! Training entry point.
+//!
+//! Usage:
+//!   cargo run --release --bin train -- data/input.txt [num_steps]
+//!
+//! Trains a small GPT on the supplied text file, saving the learned weights
+//! to `weights.safetensors` and the character vocabulary to `vocab.json`.
+
 use std::env;
 use std::fs;
+use std::time::Instant;
 
-use nano_gpt_rs::model::config::Config;
-use nano_gpt_rs::model::gpt::{gpt_forward, GptWeights};
+use candle_core::{DType, Device, Tensor};
+use candle_nn::{loss::cross_entropy, AdamW, Optimizer, ParamsAdamW, VarBuilder, VarMap};
+use rand::seq::SliceRandom;
+
+use nano_gpt_rs::gpt::{Config, Gpt};
 use nano_gpt_rs::tokenizer::{CharTokenizer, Dataset};
-use nano_gpt_rs::training::cross_entropy_loss;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let path = args.get(1).map(String::as_str).unwrap_or("data/input.txt");
+fn main() -> candle_core::Result<()> {
+    let arguments: Vec<String> = env::args().collect();
+    let training_text_path = arguments
+        .get(1)
+        .map(String::as_str)
+        .unwrap_or("data/input.txt");
+    let number_of_training_steps: usize = arguments
+        .get(2)
+        .and_then(|argument| argument.parse().ok())
+        .unwrap_or(500);
 
-    let text = fs::read_to_string(path)
-        .unwrap_or_else(|_| panic!("Could not read {path}"));
+    let training_text = fs::read_to_string(training_text_path)
+        .unwrap_or_else(|_| panic!("Could not read {training_text_path}"));
 
-    let tokenizer = CharTokenizer::from_text(&text);
-    let mut cfg = Config::nano();
-    cfg.vocab_size = tokenizer.vocab_size();
+    // Build tokenizer from training corpus
+    let tokenizer = CharTokenizer::from_text(&training_text);
+    let mut config = Config::nano();
+    config.vocab_size = tokenizer.vocab_size();
 
-    let tokens = tokenizer.encode(&text);
-    let dataset = Dataset::new(tokens, cfg.context_len);
-    let weights = GptWeights::random(&cfg);
+    // Encode entire corpus once, then expose it as sliding (input, target) windows
+    let encoded_tokens: Vec<usize> = tokenizer.encode(&training_text);
+    let dataset = Dataset::new(encoded_tokens, config.context_len);
 
+    // Set up the model and the AdamW optimizer (autograd tracks the parameters
+    // registered through `var_builder` into `parameter_map`).
+    let device = Device::Cpu;
+    let parameter_map = VarMap::new();
+    let var_builder = VarBuilder::from_varmap(&parameter_map, DType::F32, &device);
+    let model = Gpt::new(config.clone(), var_builder)?;
+
+    let optimizer_params = ParamsAdamW {
+        lr: 3e-4,
+        ..Default::default()
+    };
+    let mut optimizer = AdamW::new(parameter_map.all_vars(), optimizer_params)?;
+
+    let total_parameter_count: usize = parameter_map
+        .all_vars()
+        .iter()
+        .map(|parameter| parameter.elem_count())
+        .sum();
     println!("Vocab size: {}", tokenizer.vocab_size());
-    println!("Total params: {}", weights.num_params());
-    println!("Total samples: {}", dataset.num_samples());
+    println!("Total parameters: {total_parameter_count}");
+    println!("Total training samples: {}", dataset.num_samples());
+    println!("Context length: {}", config.context_len);
+    println!("Training for {number_of_training_steps} steps\n");
 
-    // Forward-pass smoke test on the first few samples.
-    let samples_to_check = 3.min(dataset.num_samples());
-    for sample_index in 0..samples_to_check {
-        let (input_ids, target_ids) = dataset.get(sample_index);
-        let logits = gpt_forward(&input_ids, &weights, &cfg);
-        let loss = cross_entropy_loss(&logits, &target_ids);
-        println!("sample {sample_index}: loss = {loss:.4}");
+    let mut rng = rand::thread_rng();
+    let all_sample_indices: Vec<usize> = (0..dataset.num_samples()).collect();
+    let training_started_at = Instant::now();
+
+    for step in 1..=number_of_training_steps {
+        // Pick a random sliding window from the corpus
+        let &sample_index = all_sample_indices.choose(&mut rng).unwrap();
+        let (input_token_ids, target_token_ids) = dataset.get(sample_index);
+
+        // candle uses u32 for token indices, so convert from our usize-based tokenizer
+        let input_as_u32: Vec<u32> = input_token_ids.iter().map(|id| *id as u32).collect();
+        let target_as_u32: Vec<u32> = target_token_ids.iter().map(|id| *id as u32).collect();
+
+        let input_tensor = Tensor::from_vec(input_as_u32, (config.context_len,), &device)?;
+        let target_tensor = Tensor::from_vec(target_as_u32, (config.context_len,), &device)?;
+
+        // Forward pass → cross-entropy loss → autograd computes gradients and AdamW applies them
+        let logits = model.forward(&input_tensor)?;
+        let loss = cross_entropy(&logits, &target_tensor)?;
+        optimizer.backward_step(&loss)?;
+
+        if step == 1 || step % 25 == 0 || step == number_of_training_steps {
+            let loss_value = loss.to_scalar::<f32>()?;
+            let elapsed_seconds = training_started_at.elapsed().as_secs_f64();
+            let steps_per_second = step as f64 / elapsed_seconds;
+            println!(
+                "step {step:>4} | loss {loss_value:.4} | {steps_per_second:.2} steps/s"
+            );
+        }
     }
 
-    println!("\nFull training requires backward passes through the model layers.");
-    println!("See the TODO comment at the bottom of src/training.rs.");
+    // Persist weights and the vocabulary so `generate` can load them later
+    let weights_path = "weights.safetensors";
+    parameter_map.save(weights_path)?;
+    println!("\nWeights saved to {weights_path}");
+
+    let vocabulary_as_json = serde_json::to_string(&tokenizer.vocab).expect("serialize vocab");
+    fs::write("vocab.json", vocabulary_as_json).expect("write vocab.json");
+    println!("Vocabulary saved to vocab.json");
+
+    Ok(())
 }

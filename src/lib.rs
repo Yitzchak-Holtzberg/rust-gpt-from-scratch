@@ -1,5 +1,2 @@
-pub mod tensor;
-pub mod model;
+pub mod gpt;
 pub mod tokenizer;
-pub mod training;
-pub mod inference;
