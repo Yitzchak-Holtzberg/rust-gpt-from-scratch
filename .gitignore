@@ -5,3 +5,12 @@ data/input.txt
 Cargo.lock
 vocab.json
 .vscode/
+
+# Build artifacts staged for Cloudflare Pages.
+# Rebuild with `scripts/build-pages.sh`.
+/wasm-inference/pkg/
+/public/pkg/
+/public/weights.safetensors
+/public/vocab.json
+.wrangler/
+.playwright-mcp/

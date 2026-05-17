@@ -1,0 +1,23 @@
+[package]
+name = "nano-gpt-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WASM inference for nano-gpt-rs"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nano-gpt-rs = { path = ".." }
+candle-core = "0.10"
+candle-nn = "0.10"
+serde_json = "1"
+wasm-bindgen = "0.2"
+rand = "0.8"
+console_error_panic_hook = "0.1"
+
+# wasm32 needs explicit JS backends on getrandom for rand to work in the browser.
+# Both 0.2 and 0.3 get pulled into the dep tree by candle's transitive deps.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
