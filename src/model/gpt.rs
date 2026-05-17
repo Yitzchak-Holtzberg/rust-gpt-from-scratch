@@ -25,6 +25,23 @@ impl GptWeights {
         }
     }
 
+    /// Random init for a runnable (untrained) model. Output will be garbage
+    /// but the full forward/sample/decode pipeline works end-to-end.
+    pub fn random(cfg: &Config) -> Self {
+        let scale = 0.02;
+        let mut weights = Self::zeros(cfg);
+        weights.token_embeddings = Tensor::randn(vec![cfg.vocab_size, cfg.embed_dim], scale);
+        weights.position_embeddings = Tensor::randn(vec![cfg.context_len, cfg.embed_dim], scale);
+        weights.output_projection = Tensor::randn(vec![cfg.embed_dim, cfg.vocab_size], scale);
+        for block in weights.blocks.iter_mut() {
+            block.attn.w_qkv = Tensor::randn(block.attn.w_qkv.shape.clone(), scale);
+            block.attn.w_proj = Tensor::randn(block.attn.w_proj.shape.clone(), scale);
+            block.mlp.w_fc = Tensor::randn(block.mlp.w_fc.shape.clone(), scale);
+            block.mlp.w_proj = Tensor::randn(block.mlp.w_proj.shape.clone(), scale);
+        }
+        weights
+    }
+
     /// Total number of scalar parameters in the model.
     pub fn num_params(&self) -> usize {
         self.blocks

@@ -29,7 +29,19 @@ pub fn cross_entropy_loss_backward(logits: &Tensor, targets: &[usize]) -> (f32, 
         targets.len(),
         "targets length must match logits rows"
     );
-    todo!()
+    let loss = cross_entropy_loss(logits, targets);
+    let probabilities = logits.softmax_rows();
+    let row_count = logits.shape[0];
+    let vocab_size = logits.shape[1];
+    let inverse_row_count = 1.0 / row_count as f32;
+    let mut gradient_data = probabilities.data.clone();
+    for (row_index, &target_index) in targets.iter().enumerate() {
+        gradient_data[row_index * vocab_size + target_index] -= 1.0;
+    }
+    for value in gradient_data.iter_mut() {
+        *value *= inverse_row_count;
+    }
+    (loss, Tensor::new(gradient_data, logits.shape.clone()))
 }
 /// AdamW optimizer state. One m and v entry per parameter.
 pub struct Adam {

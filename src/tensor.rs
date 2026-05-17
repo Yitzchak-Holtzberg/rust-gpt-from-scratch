@@ -1,3 +1,6 @@
+const GELU_COEFF: f32 = 0.797_884_6;
+const LAYER_NORM_EPS: f32 = 1e-5;
+
 /// Row-major, f32, arbitrary shape.
 #[derive(Clone, Debug)]
 pub struct Tensor {
@@ -22,6 +25,16 @@ impl Tensor {
         let number_of_ones = shape.iter().product();
         let one_contents = vec![1.0f32; number_of_ones];
         Tensor::new(one_contents, shape)
+    }
+
+    /// Random uniform init in [-scale, scale]. Useful for quick prototyping
+    /// when proper Xavier/Kaiming init isn't needed.
+    pub fn randn(shape: Vec<usize>, scale: f32) -> Self {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let count = shape.iter().product();
+        let data: Vec<f32> = (0..count).map(|_| rng.gen_range(-scale..scale)).collect();
+        Tensor::new(data, shape)
     }
 
     pub fn numel(&self) -> usize {
@@ -249,7 +262,7 @@ impl Tensor {
             // Compute mean and variance across this token's embedding vector
             let mean = row.iter().sum::<f32>() / cols as f32;
             let variance = row.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / cols as f32;
-            let std = (variance + 1e-5).sqrt(); // 1e-5 prevents division by zero
+            let std = (variance + LAYER_NORM_EPS).sqrt();
 
             // Normalise, then apply learned scale (weight) and shift (bias) per dimension
             out_data
@@ -270,7 +283,7 @@ impl Tensor {
             .map(|x| {
                 let cubed = x.powi(3);
                 let inner = x + 0.044715 * cubed;
-                let scale = 0.797_884_6_f32 * inner;
+                let scale = GELU_COEFF * inner;
                 0.5 * x * (1.0 + scale.tanh())
             })
             .collect();
@@ -355,7 +368,15 @@ impl Tensor {
             "indices length must match grad_out rows"
         );
         assert_eq!(grad_out.shape[1], self.shape[1], "column count mismatch");
-        todo!()
+        let num_columns = self.shape[1];
+        let mut gradient = Tensor::zeros(self.shape.clone());
+        for (grad_out_row_index, &original_row_index) in indices.iter().enumerate() {
+            let incoming_gradient_row = grad_out.row(grad_out_row_index);
+            for (column_index, &incoming_gradient_value) in incoming_gradient_row.iter().enumerate() {
+                gradient.data[original_row_index * num_columns + column_index] += incoming_gradient_value;
+            }
+        }
+        gradient
     }
 
     /// Backward pass for slice_cols: z = self.slice_cols(start, end)
@@ -369,7 +390,13 @@ impl Tensor {
         assert_eq!(grad_out.ndim(), 2, "grad_out must be 2D");
         assert_eq!(end - start, grad_out.shape[1], "slice width mismatch");
         assert_eq!(grad_out.shape[0], self.shape[0], "row count mismatch");
-        todo!()
+        let num_columns = self.shape[1];
+        let mut gradient = Tensor::zeros(self.shape.clone());
+        for (row_index, incoming_gradient_row) in grad_out.data.chunks(end - start).enumerate() {
+            let dest_start = row_index * num_columns + start;
+            gradient.data[dest_start..dest_start + (end - start)].copy_from_slice(incoming_gradient_row);
+        }
+        gradient
     }
 
     /// Backward pass for concat_cols: z = self | other (side by side)
@@ -387,7 +414,12 @@ impl Tensor {
             self.shape[1] + other.shape[1],
             "column count mismatch"
         );
-        todo!()
+        let left_tensor_column_count = self.shape[1];
+        let right_tensor_end_column = left_tensor_column_count + other.shape[1];
+        (
+            grad_out.slice_cols(0, left_tensor_column_count),
+            grad_out.slice_cols(left_tensor_column_count, right_tensor_end_column),
+        )
     }
 
     /// Backward pass for transpose_2d: z = self^T
@@ -422,15 +454,16 @@ impl Tensor {
     ///     grad[i]   = grad_out[i] * gelu_grad
     pub fn gelu_backward(&self, grad_out: &Tensor) -> Tensor {
         assert_eq!(self.shape, grad_out.shape, "shape mismatch");
-        let new_data = self.data.iter().zip(grad_out.data.iter()).map(|(&x, &g)| {
-        let inner = ...;      // line 1
-        let tanh_val = ...;   // line 2
-        // etc.
-            g * gelu_grad
-            }).collect();
-
-        
-        }
+        let output_data: Vec<f32> = self.data.iter().zip(grad_out.data.iter()).map(|(&input_value, &upstream_gradient)| {
+            let tanh_argument = GELU_COEFF * (input_value + 0.044715 * input_value.powi(3));
+            let tanh_value = tanh_argument.tanh();
+            let sech_squared = 1.0 - tanh_value.powi(2);
+            let tanh_argument_derivative = GELU_COEFF * (1.0 + 3.0 * 0.044715 * input_value.powi(2));
+            let gelu_local_derivative = 0.5 * (1.0 + tanh_value) + 0.5 * input_value * sech_squared * tanh_argument_derivative;
+            upstream_gradient * gelu_local_derivative
+        }).collect();
+        self.with_data(output_data)
+    }
 
     /// Backward pass for softmax_rows.
     /// self is the softmax output (probabilities).
@@ -442,7 +475,21 @@ impl Tensor {
     pub fn softmax_rows_backward(&self, grad_out: &Tensor) -> Tensor {
         assert_eq!(self.shape, grad_out.shape, "shape mismatch");
         assert_eq!(self.ndim(), 2, "softmax_out must be 2D");
-        todo!()
+        let num_columns = self.shape[1];
+        let output_data: Vec<f32> = self.data.chunks(num_columns)
+            .zip(grad_out.data.chunks(num_columns))
+            .flat_map(|(probability_row, upstream_gradient_row)| {
+                let dot_product: f32 = probability_row.iter()
+                    .zip(upstream_gradient_row.iter())
+                    .map(|(probability, upstream_gradient)| probability * upstream_gradient)
+                    .sum();
+                probability_row.iter()
+                    .zip(upstream_gradient_row.iter())
+                    .map(move |(&probability, &upstream_gradient)| probability * (upstream_gradient - dot_product))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        self.with_data(output_data)
     }
 
     /// Backward pass for layer_norm.
@@ -461,6 +508,18 @@ impl Tensor {
     ///     sum_dxh         = sum of dx_hat[j]
     ///     sum_dxh_xh      = sum of dx_hat[j] * x_hat[j]
     ///     grad_input[row][j] = inv_std / cols * (cols * dx_hat[j] - sum_dxh - x_hat[j] * sum_dxh_xh)
+    fn normalize_row_with_stats(row: &[f32]) -> (f32, Vec<f32>) {
+        let mean = row.iter().sum::<f32>() / row.len() as f32;
+        let variance = row.iter().map(|value| (value - mean).powi(2)).sum::<f32>() / row.len() as f32;
+        let inverse_std_dev = 1.0 / (variance + LAYER_NORM_EPS).sqrt();
+        let normalized_values = row.iter().map(|value| (value - mean) * inverse_std_dev).collect();
+        (inverse_std_dev, normalized_values)
+    }
+
+    fn with_data(&self, data: Vec<f32>) -> Tensor {
+        Tensor { data, shape: self.shape.clone() }
+    }
+
     pub fn layer_norm_backward(
         &self,
         weight: &Tensor,
@@ -469,7 +528,41 @@ impl Tensor {
         assert_eq!(self.shape, grad_out.shape, "shape mismatch");
         assert_eq!(self.ndim(), 2, "input must be 2D");
         assert_eq!(weight.ndim(), 1, "weight must be 1D");
-        todo!()
+        let embedding_dim = self.shape[1];
+        let embedding_dim_f = embedding_dim as f32;
+        let mut input_gradient_data = vec![0.0f32; self.data.len()];
+        let mut weight_gradient = vec![0.0f32; embedding_dim];
+        let mut bias_gradient = vec![0.0f32; embedding_dim];
+
+        for (row_index, (input_values, upstream_gradient_row)) in self
+            .data.chunks(embedding_dim)
+            .zip(grad_out.data.chunks(embedding_dim))
+            .enumerate()
+        {
+            let (inverse_std_dev, normalized_values) = Self::normalize_row_with_stats(input_values);
+
+            let mut sum_weighted_grad = 0.0f32;
+            let mut sum_weighted_grad_times_normed = 0.0f32;
+
+            for col_index in 0..embedding_dim {
+                let grad_scaled_by_weight = upstream_gradient_row[col_index] * weight.data[col_index];
+                weight_gradient[col_index] += upstream_gradient_row[col_index] * normalized_values[col_index];
+                bias_gradient[col_index] += upstream_gradient_row[col_index];
+                sum_weighted_grad += grad_scaled_by_weight;
+                sum_weighted_grad_times_normed += grad_scaled_by_weight * normalized_values[col_index];
+            }
+
+            for col_index in 0..embedding_dim {
+                let grad_scaled_by_weight = upstream_gradient_row[col_index] * weight.data[col_index];
+                input_gradient_data[row_index * embedding_dim + col_index] = inverse_std_dev / embedding_dim_f
+                    * (embedding_dim_f * grad_scaled_by_weight - sum_weighted_grad - normalized_values[col_index] * sum_weighted_grad_times_normed);
+            }
+        }
+        (
+            self.with_data(input_gradient_data),
+            Tensor { data: weight_gradient, shape: vec![embedding_dim] },
+            Tensor { data: bias_gradient, shape: vec![embedding_dim] },
+        )
     }
 
     /// Returns a [T, T] matrix with 0 on/below diagonal and -inf above.
