@@ -119,7 +119,8 @@ pub(crate) fn run_training(state: AppState, request: TrainRequest) {
             Tensor::from_vec(target_buffer, (batch_size * context_len,), &device)
                 .expect("target tensor");
 
-        let logits = model.forward(&input_tensor).expect("forward");
+        // `forward_train` enables dropout — the inference paths still call `forward`.
+        let logits = model.forward_train(&input_tensor).expect("forward");
         let logits_flat = logits
             .reshape((batch_size * context_len, vocab_size))
             .expect("reshape logits");
