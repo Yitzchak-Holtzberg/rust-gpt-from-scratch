@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mockup B — Cinematic</title>
+<style>
+  :root {
+    --bg: #07090d;
+    --panel: rgba(255, 255, 255, 0.03);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #ecf0f7;
+    --muted: #8b94a8;
+    --dim: #475063;
+    --pink: #ff6b9d;
+    --cyan: #5eead4;
+    --amber: #fbbf24;
+    --indigo: #818cf8;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse at top right, rgba(94, 234, 212, 0.06), transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(129, 140, 248, 0.06), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .frame {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 32px 48px;
+  }
+  /* Header */
+  .hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .brand {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--cyan), var(--indigo) 60%, var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  /* Hero: live generation */
+  .hero {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(20px);
+  }
+  .hero-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .hero-head .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--cyan);
+  }
+  .timeline {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .timeline span.active {
+    color: var(--cyan);
+    background: rgba(94, 234, 212, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .timeline span {
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+  .gen-stream {
+    font-family: var(--mono);
+    font-size: 17px;
+    line-height: 1.85;
+    color: var(--text);
+    min-height: 200px;
+    background:
+      linear-gradient(180deg, transparent, rgba(94, 234, 212, 0.03)),
+      rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 28px 32px;
+    border: 1px solid var(--panel-border);
+    position: relative;
+  }
+  .gen-stream::before {
+    content: "ROMEO: ";
+    color: var(--pink);
+    font-weight: 700;
+  }
+  .gen-stream .cursor {
+    display: inline-block;
+    width: 9px;
+    height: 1.1em;
+    vertical-align: text-bottom;
+    background: var(--cyan);
+    margin-left: 2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+  .gen-stream .fade-old {
+    opacity: 0.4;
+  }
+  /* Two-column row */
+  .row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    backdrop-filter: blur(20px);
+  }
+  .card h2 {
+    margin: 0 0 16px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  /* Loss chart */
+  .loss-stats {
+    display: flex;
+    gap: 28px;
+    margin-bottom: 12px;
+  }
+  .loss-stats .big {
+    font-family: var(--mono);
+    font-size: 36px;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--cyan), var(--indigo));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 600;
+  }
+  .loss-stats .sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .loss-stats .num {
+    font-family: var(--mono);
+    color: var(--text);
+    font-size: 14px;
+  }
+  .loss-stats .delta {
+    color: var(--cyan);
+    margin-left: 8px;
+    font-size: 12px;
+  }
+  .chart {
+    width: 100%; height: 200px;
+  }
+  /* Probabilities */
+  .prob-prompt {
+    font-family: var(--mono);
+    color: var(--pink);
+    background: rgba(255, 107, 157, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+  .prob {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .prob-tok {
+    width: 32px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .prob-bar {
+    flex: 1;
+    height: 16px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .prob-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--indigo), var(--cyan));
+    transition: width 0.8s cubic-bezier(0.2, 0.7, 0, 1);
+  }
+  .prob-num {
+    width: 56px;
+    text-align: right;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  /* Metrics row */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .metric {
+    padding: 18px 20px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    backdrop-filter: blur(20px);
+  }
+  .metric .lab {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+  .metric .val {
+    font-family: var(--mono);
+    font-size: 26px;
+    margin-top: 4px;
+    color: var(--text);
+  }
+  .metric .ext {
+    font-size: 11px;
+    margin-top: 4px;
+    color: var(--cyan);
+  }
+  .metric .ext.amber { color: var(--amber); }
+  .metric .ext.pink { color: var(--pink); }
+  /* Footer controls */
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    width: 80px;
+  }
+  .controls input[type="text"] { width: 200px; }
+  .controls .lab {
+    color: var(--muted);
+    font-size: 12px;
+    margin-right: 4px;
+  }
+  .controls button {
+    margin-left: auto;
+    background: linear-gradient(135deg, var(--cyan), var(--indigo));
+    color: #06090d;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .controls button.ghost {
+    margin-left: 0;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="hd">
+    <div class="brand">nano-gpt-rs · live</div>
+    <div style="display: flex; gap: 12px;">
+      <span class="pill"><span class="dot"></span> CUDA · RTX 500 Ada</span>
+      <span class="pill" style="color: var(--cyan);">step 1,247 / 2,000 · 26.1 steps/s</span>
+    </div>
+  </div>
+
+  <!-- Hero: live generation -->
+  <section class="hero">
+    <div class="hero-head">
+      <div class="label">Watching it learn — generating from "ROMEO:"</div>
+      <div class="timeline">
+        <span>step 0</span>·<span>50</span>·<span>200</span>·<span>500</span>·<span>800</span>·<span class="active">1,200</span>·<span>now</span>
+      </div>
+    </div>
+    <div class="gen-stream"><span class="fade-old">Why, hither love a maid hath stay'd it for thou,
+And thy son, that shall the heart's mistress
+</span>Will but his thought to her own breath of love.<span class="cursor"></span></div>
+  </section>
+
+  <!-- Row: loss + probs -->
+  <div class="row">
+    <div class="card">
+      <h2>Training loss</h2>
+      <div class="loss-stats">
+        <div>
+          <div class="big">2.183</div>
+          <div class="sub">current · <span class="num">3.226</span><span class="delta">↓ 1.04 in 12m 13s</span></div>
+        </div>
+        <div style="margin-top: 6px;">
+          <div class="num" style="color: var(--cyan);">2.041</div>
+          <div class="sub">best so far</div>
+        </div>
+        <div style="margin-top: 6px;">
+          <div class="num">log ▢</div>
+          <div class="sub">scale</div>
+        </div>
+      </div>
+      <svg class="chart" viewBox="0 0 800 200" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="lossfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#5eead4" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#5eead4" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="50" x2="800" y2="50" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2 4"/>
+        <line x1="0" y1="100" x2="800" y2="100" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2 4"/>
+        <line x1="0" y1="150" x2="800" y2="150" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2 4"/>
+        <!-- area fill below smoothed curve -->
+        <path d="M0,12 L16,17 L32,22 L48,28 L64,34 L80,40 L96,46 L112,52 L128,58 L144,64 L160,70 L176,75 L192,80 L208,85 L224,90 L240,95 L256,99 L272,103 L288,107 L304,110 L320,113 L336,116 L352,119 L368,122 L384,124 L400,127 L416,129 L432,131 L448,133 L464,135 L480,137 L496,139 L512,141 L528,142 L544,144 L560,145 L576,146 L592,147 L608,148 L624,149 L640,150 L656,151 L672,152 L688,152 L704,153 L720,154 L736,154 L752,155 L768,155 L784,156 L800,156 L800,200 L0,200 Z"
+              fill="url(#lossfill)"/>
+        <!-- raw noisy line -->
+        <polyline fill="none" stroke="#818cf8" stroke-width="1" opacity="0.4"
+          points="0,10 16,15 32,12 48,22 64,18 80,28 96,25 112,35 128,32 144,42 160,40 176,52 192,48 208,58 224,55 240,65 256,62 272,72 288,70 304,80 320,78 336,88 352,85 368,95 384,93 400,103 416,100 432,108 448,105 464,115 480,112 496,118 512,116 528,124 544,122 560,128 576,126 592,132 608,130 624,135 640,133 656,138 672,136 688,141 704,139 720,143 736,141 752,145 768,143 784,147 800,145" />
+        <!-- EMA -->
+        <polyline fill="none" stroke="#5eead4" stroke-width="2.5"
+          points="0,12 16,17 32,22 48,28 64,34 80,40 96,46 112,52 128,58 144,64 160,70 176,75 192,80 208,85 224,90 240,95 256,99 272,103 288,107 304,110 320,113 336,116 352,119 368,122 384,124 400,127 416,129 432,131 448,133 464,135 480,137 496,139 512,141 528,142 544,144 560,145 576,146 592,147 608,148 624,149 640,150 656,151 672,152 688,152 704,153 720,154 736,154 752,155 768,155 784,156 800,156" />
+        <!-- current point -->
+        <circle cx="800" cy="156" r="5" fill="#5eead4"/>
+      </svg>
+    </div>
+
+    <div class="card">
+      <h2>Next-token probability</h2>
+      <div class="prob-prompt">prompt: "ROMEO:"</div>
+      <div class="prob"><span class="prob-tok">\n</span><div class="prob-bar"><div class="prob-fill" style="width: 84%;"></div></div><span class="prob-num">42.1%</span></div>
+      <div class="prob"><span class="prob-tok">‧</span><div class="prob-bar"><div class="prob-fill" style="width: 56%;"></div></div><span class="prob-num">28.1%</span></div>
+      <div class="prob"><span class="prob-tok">W</span><div class="prob-bar"><div class="prob-fill" style="width: 28%;"></div></div><span class="prob-num">14.2%</span></div>
+      <div class="prob"><span class="prob-tok">I</span><div class="prob-bar"><div class="prob-fill" style="width: 16%;"></div></div><span class="prob-num">8.2%</span></div>
+      <div class="prob"><span class="prob-tok">A</span><div class="prob-bar"><div class="prob-fill" style="width: 8%;"></div></div><span class="prob-num">4.1%</span></div>
+      <div class="prob"><span class="prob-tok">T</span><div class="prob-bar"><div class="prob-fill" style="width: 5%;"></div></div><span class="prob-num">2.4%</span></div>
+      <div class="prob"><span class="prob-tok">O</span><div class="prob-bar"><div class="prob-fill" style="width: 1.4%;"></div></div><span class="prob-num">0.7%</span></div>
+      <div class="prob"><span class="prob-tok">M</span><div class="prob-bar"><div class="prob-fill" style="width: 0.4%;"></div></div><span class="prob-num">0.2%</span></div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="lab">Throughput</div>
+      <div class="val">1,672</div>
+      <div class="ext pink">tokens / sec</div>
+    </div>
+    <div class="metric">
+      <div class="lab">GPU utilization</div>
+      <div class="val">98%</div>
+      <div class="ext">RTX 500 Ada · 25°C</div>
+    </div>
+    <div class="metric">
+      <div class="lab">VRAM</div>
+      <div class="val">691<span style="color: var(--muted); font-size: 14px;"> MiB</span></div>
+      <div class="ext amber">17% of 4 GB</div>
+    </div>
+    <div class="metric">
+      <div class="lab">Elapsed · ETA</div>
+      <div class="val">12:13</div>
+      <div class="ext">eta 0:32 at current rate</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <span class="lab">Steps</span><input value="2000" />
+    <span class="lab">Batch</span><input value="64" />
+    <span class="lab">LR</span><input value="3e-4" />
+    <span class="lab">Prompt</span><input type="text" value="ROMEO:" />
+    <button class="ghost">Generate</button>
+    <button>Train</button>
+  </div>
+</div>
+</body>
+</html>

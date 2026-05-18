@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mockup B2 — Cinematic Light</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --paper: #ffffff;
+    --border: #e3e6eb;
+    --border-strong: #cfd4dc;
+    --ink: #111418;
+    --text: #2a2f37;
+    --muted: #6b7280;
+    --dim: #9aa1ad;
+    --pink: #d6336c;
+    --cyan: #0891b2;
+    --amber: #b45309;
+    --indigo: #4f46e5;
+    --good: #047857;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  .frame {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 18px 24px;
+  }
+
+  /* compact header */
+  .hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .brand .accent {
+    background: linear-gradient(135deg, var(--cyan), var(--indigo) 60%, var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .pills { display: flex; gap: 6px; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pill .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 6px rgba(4, 120, 87, 0.5);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .pill.strong { color: var(--cyan); border-color: rgba(8, 145, 178, 0.3); background: rgba(8, 145, 178, 0.05); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* shared card style */
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* layout: hero + right column, then chart + probs */
+  .top {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* hero */
+  .hero { padding: 14px 16px; }
+  .hero-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .hero-head .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--cyan);
+    font-weight: 600;
+  }
+  .timeline {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .timeline span {
+    padding: 1px 6px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .timeline span.active {
+    color: var(--cyan);
+    background: rgba(8, 145, 178, 0.1);
+    font-weight: 600;
+  }
+  .gen-stream {
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: #fafbfc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    min-height: 168px;
+    position: relative;
+    overflow: hidden;
+  }
+  .gen-stream::before {
+    content: "ROMEO: ";
+    color: var(--pink);
+    font-weight: 700;
+  }
+  .gen-stream .fade-old { opacity: 0.42; }
+  .gen-stream .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.05em;
+    vertical-align: text-bottom;
+    background: var(--cyan);
+    margin-left: 2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* right column: prob bars */
+  .probs { padding: 12px 14px; }
+  .prob-prompt {
+    font-family: var(--mono);
+    color: var(--pink);
+    background: rgba(214, 51, 108, 0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    display: inline-block;
+    font-size: 11px;
+  }
+  .prob {
+    display: grid;
+    grid-template-columns: 24px 1fr 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .prob-tok { color: var(--ink); font-weight: 700; }
+  .prob-bar {
+    height: 12px;
+    background: #f1f3f5;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--indigo), var(--cyan));
+    transition: width 0.8s cubic-bezier(0.2, 0.7, 0, 1);
+  }
+  .prob-num { text-align: right; color: var(--muted); font-size: 11px; }
+
+  /* mid row: loss chart + metric strip */
+  .mid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .loss-card { padding: 12px 14px; }
+  .loss-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .loss-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .loss-stats .big {
+    font-family: var(--mono);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .loss-stats .label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .loss-stats .delta {
+    color: var(--good);
+    font-size: 11px;
+    margin-left: 4px;
+    font-family: var(--mono);
+  }
+  .chart {
+    width: 100%; height: 130px;
+  }
+  .scale-toggle {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .scale-toggle span { padding: 1px 6px; cursor: pointer; border-radius: 3px; }
+  .scale-toggle span.active { color: var(--ink); background: var(--bg); border: 1px solid var(--border); }
+
+  /* metric strip */
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric {
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+  }
+  .metric .lab {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .metric .val {
+    font-family: var(--mono);
+    font-size: 20px;
+    margin-top: 2px;
+    color: var(--ink);
+  }
+  .metric .ext {
+    font-size: 10px;
+    color: var(--cyan);
+    margin-top: 2px;
+  }
+  .metric .ext.amber { color: var(--amber); }
+  .metric .ext.pink { color: var(--pink); }
+  .metric .ext.muted { color: var(--muted); }
+
+  /* controls bar */
+  .controls {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 8px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 76px;
+  }
+  .controls input[type="text"] { width: 180px; }
+  .controls .lab {
+    color: var(--muted);
+    font-size: 11px;
+    margin-right: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .controls button {
+    background: linear-gradient(135deg, var(--cyan), var(--indigo));
+    color: white;
+    border: none;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .controls button.ghost {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--border-strong);
+  }
+  .controls .spacer { flex: 1; }
+
+  /* upload drop zone (compact) */
+  .upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .upload:hover { border-color: var(--cyan); color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="hd">
+    <div class="brand">nano-gpt-rs <span class="accent">· live</span></div>
+    <div class="pills">
+      <span class="pill"><span class="dot"></span>CUDA · RTX 500 Ada</span>
+      <span class="pill strong">step 1,247 / 2,000 · 26.1 steps/s</span>
+      <span class="pill">tinyshakespeare · 1.1M samples · vocab 65 · 446K params</span>
+    </div>
+  </div>
+
+  <div class="top">
+    <!-- Hero: live generation -->
+    <section class="card hero">
+      <div class="hero-head">
+        <div class="label">Watching it learn — generating from "ROMEO:"</div>
+        <div class="timeline">
+          <span>0</span><span>50</span><span>200</span><span>500</span><span>800</span><span class="active">1,200</span><span>now</span>
+        </div>
+      </div>
+      <div class="gen-stream"><span class="fade-old">Why, hither love a maid hath stay'd it for thou,
+And thy son, that shall the heart's mistress
+</span>Will but his thought to her own breath of love.<span class="cursor"></span></div>
+    </section>
+
+    <!-- Probs -->
+    <section class="card probs">
+      <h2>Next-token probability</h2>
+      <div class="prob-prompt">prompt: "ROMEO:"</div>
+      <div class="prob"><span class="prob-tok">\n</span><div class="prob-bar"><div class="prob-fill" style="width: 84%;"></div></div><span class="prob-num">42.1%</span></div>
+      <div class="prob"><span class="prob-tok">‧</span><div class="prob-bar"><div class="prob-fill" style="width: 56%;"></div></div><span class="prob-num">28.1%</span></div>
+      <div class="prob"><span class="prob-tok">W</span><div class="prob-bar"><div class="prob-fill" style="width: 28%;"></div></div><span class="prob-num">14.2%</span></div>
+      <div class="prob"><span class="prob-tok">I</span><div class="prob-bar"><div class="prob-fill" style="width: 16%;"></div></div><span class="prob-num">8.2%</span></div>
+      <div class="prob"><span class="prob-tok">A</span><div class="prob-bar"><div class="prob-fill" style="width: 8%;"></div></div><span class="prob-num">4.1%</span></div>
+      <div class="prob"><span class="prob-tok">T</span><div class="prob-bar"><div class="prob-fill" style="width: 5%;"></div></div><span class="prob-num">2.4%</span></div>
+      <div class="prob"><span class="prob-tok">O</span><div class="prob-bar"><div class="prob-fill" style="width: 1.4%;"></div></div><span class="prob-num">0.7%</span></div>
+      <div class="prob"><span class="prob-tok">M</span><div class="prob-bar"><div class="prob-fill" style="width: 0.4%;"></div></div><span class="prob-num">0.2%</span></div>
+    </section>
+  </div>
+
+  <div class="mid">
+    <section class="card loss-card">
+      <div class="loss-head">
+        <div class="loss-stats">
+          <div>
+            <div class="big">2.183</div>
+            <div class="label">current loss <span class="delta">↓ 1.04</span></div>
+          </div>
+          <div>
+            <div class="big" style="color: var(--cyan);">2.041</div>
+            <div class="label">best</div>
+          </div>
+          <div>
+            <div class="big" style="color: var(--muted);">12:13</div>
+            <div class="label">elapsed</div>
+          </div>
+        </div>
+        <div class="scale-toggle">
+          <span class="active">linear</span><span>log</span>
+        </div>
+      </div>
+      <svg class="chart" viewBox="0 0 800 130" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="lossfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0891b2" stop-opacity="0.13"/>
+            <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="32" x2="800" y2="32" stroke="#e3e6eb" stroke-dasharray="2 4"/>
+        <line x1="0" y1="64" x2="800" y2="64" stroke="#e3e6eb" stroke-dasharray="2 4"/>
+        <line x1="0" y1="96" x2="800" y2="96" stroke="#e3e6eb" stroke-dasharray="2 4"/>
+        <path d="M0,8 L16,11 L32,14 L48,18 L64,22 L80,26 L96,30 L112,34 L128,38 L144,42 L160,46 L176,49 L192,52 L208,55 L224,58 L240,61 L256,64 L272,67 L288,70 L304,72 L320,74 L336,76 L352,78 L368,80 L384,81 L400,83 L416,84 L432,85 L448,86 L464,87 L480,88 L496,89 L512,90 L528,91 L544,92 L560,93 L576,93 L592,94 L608,94 L624,95 L640,95 L656,96 L672,96 L688,97 L704,97 L720,97 L736,98 L752,98 L768,98 L784,99 L800,99 L800,130 L0,130 Z" fill="url(#lossfill)"/>
+        <polyline fill="none" stroke="#4f46e5" stroke-width="0.8" opacity="0.45"
+          points="0,6 16,11 32,8 48,15 64,12 80,19 96,16 112,23 128,20 144,28 160,25 176,33 192,30 208,38 224,34 240,42 256,39 272,46 288,43 304,51 320,47 336,55 352,52 368,60 384,56 400,64 416,60 432,68 448,64 464,72 480,68 496,75 512,72 528,79 544,75 560,82 576,78 592,85 608,82 624,88 640,84 656,91 672,87 688,93 704,90 720,95 736,92 752,97 768,94 784,99 800,96"/>
+        <polyline fill="none" stroke="#0891b2" stroke-width="2"
+          points="0,8 16,11 32,14 48,18 64,22 80,26 96,30 112,34 128,38 144,42 160,46 176,49 192,52 208,55 224,58 240,61 256,64 272,67 288,70 304,72 320,74 336,76 352,78 368,80 384,81 400,83 416,84 432,85 448,86 464,87 480,88 496,89 512,90 528,91 544,92 560,93 576,93 592,94 608,94 624,95 640,95 656,96 672,96 688,97 704,97 720,97 736,98 752,98 768,98 784,99 800,99"/>
+        <circle cx="800" cy="99" r="4" fill="#0891b2"/>
+      </svg>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="lab">Throughput</div>
+        <div class="val">1,672</div>
+        <div class="ext pink">tokens / sec</div>
+      </div>
+      <div class="metric">
+        <div class="lab">GPU util</div>
+        <div class="val">98%</div>
+        <div class="ext muted">25°C · RTX 500 Ada</div>
+      </div>
+      <div class="metric">
+        <div class="lab">VRAM</div>
+        <div class="val">691<span style="color: var(--muted); font-size: 12px;"> MiB</span></div>
+        <div class="ext amber">17% of 4 GB</div>
+      </div>
+      <div class="metric">
+        <div class="lab">ETA</div>
+        <div class="val">0:32</div>
+        <div class="ext">at 26.1 steps/s</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="controls">
+    <span class="lab">Steps</span><input value="2000" />
+    <span class="lab">Batch</span><input value="64" />
+    <span class="lab">LR</span><input value="3e-4" />
+    <span class="lab">Prompt</span><input type="text" value="ROMEO:" />
+    <span class="lab">Tokens</span><input value="200" />
+    <span class="upload">📂 replace corpus</span>
+    <span class="spacer"></span>
+    <button class="ghost">Generate</button>
+    <button>Train</button>
+  </div>
+</div>
+</body>
+</html>

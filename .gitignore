@@ -1,7 +1,9 @@
 /target
 data/input.txt
+data/checkpoint.json
 *.bin
 *.safetensors
+*.log
 Cargo.lock
 vocab.json
 .vscode/

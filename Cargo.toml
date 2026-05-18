@@ -33,6 +33,17 @@ candle-nn = "0.10"
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["limit"] }
+# HuggingFace BPE / subword tokenizer. WASM build keeps the old CharTokenizer
+# since `tokenizers` has heavy native deps that don't compile to wasm32.
+tokenizers = "0.22"
+
+[features]
+default = []
+# Enable with `cargo build --release --features cuda --bin serve`.
+# Requires CUDA Toolkit 12.x installed (nvcc on PATH, CUDA_PATH env var set).
+# Without this feature, the binary still runs — Device::new_cuda just errors
+# at startup and we fall back to CPU.
+cuda = ["candle-core/cuda", "candle-nn/cuda"]
 
 [profile.release]
 opt-level = 3

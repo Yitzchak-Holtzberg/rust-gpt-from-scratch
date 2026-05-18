@@ -14,9 +14,11 @@ use candle_nn::{
     embedding, layer_norm, linear, linear_no_bias, ops::softmax_last_dim, Embedding, LayerNorm,
     Linear, Module, VarBuilder,
 };
+use serde::{Deserialize, Serialize};
 
-/// Hyperparameters that fully define the model architecture.
-#[derive(Clone, Debug)]
+/// Hyperparameters that fully define the model architecture. Serializable so
+/// it can be saved alongside weights in a checkpoint.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     pub vocab_size: usize,
     pub context_len: usize,
@@ -27,15 +29,22 @@ pub struct Config {
 }
 
 impl Config {
-    /// ~450K-parameter default suitable for character-level Shakespeare.
+    /// ~10.7M-parameter config — the classic nanoGPT char-level Shakespeare
+    /// recipe (Karpathy). With ~3000–5000 training steps on Tiny Shakespeare,
+    /// this produces convincing pseudo-Shakespeare with real English words.
     /// `vocab_size` must be set after building the tokenizer.
+    ///
+    /// Capacity matters here more than training time: smaller configs
+    /// (2 layers / 128 dim) plateau in babble territory regardless of
+    /// how long they train — they lack the depth to compose letters into
+    /// multi-character words.
     pub fn nano() -> Self {
         Self {
             vocab_size: 0,
             context_len: 256,
-            embed_dim: 128,
-            num_heads: 2,
-            num_layers: 2,
+            embed_dim: 384,
+            num_heads: 6,
+            num_layers: 6,
             mlp_ratio: 4,
         }
     }

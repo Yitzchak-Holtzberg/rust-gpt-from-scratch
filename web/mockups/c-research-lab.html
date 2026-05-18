@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mockup C — Research Lab</title>
+<style>
+  :root {
+    --bg: #f8f7f2;
+    --paper: #ffffff;
+    --ink: #1a1d24;
+    --muted: #6b7180;
+    --line: #e2e4ea;
+    --accent: #1e40af;
+    --accent-soft: #dbeafe;
+    --warm: #b45309;
+    --rose: #b91c1c;
+    --serif: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+    --sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .frame {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 36px 64px;
+  }
+  /* Header */
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  .head h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .head h1 .sub {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 12px;
+  }
+  .head .meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .head .live {
+    color: var(--rose);
+    font-weight: 600;
+  }
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .tab {
+    padding: 12px 20px;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    font-size: 13px;
+  }
+  .tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .tab .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--line);
+    color: var(--muted);
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+  }
+  /* Two-col layout */
+  .body-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 28px;
+  }
+  /* Side panel (config & history) */
+  .side h3 {
+    margin: 0 0 6px;
+    font-family: var(--serif);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .side .grp {
+    margin-bottom: 22px;
+  }
+  .kv {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    column-gap: 10px;
+    row-gap: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--ink); }
+  .run-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .run {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .run.current {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .run .when {
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .run .ttl {
+    font-weight: 600;
+  }
+  /* Main column */
+  .figure {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 22px;
+  }
+  .figure .fig-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .figure .fig-head .label {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .figure .fig-head .label small {
+    font-family: var(--sans);
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 12px;
+    margin-left: 8px;
+  }
+  .figure .fig-body {
+    padding: 16px 18px;
+  }
+  .figure .caption {
+    padding: 0 18px 14px;
+    color: var(--muted);
+    font-size: 12px;
+    font-style: italic;
+  }
+  /* Attention heatmap */
+  .att-controls {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .att-controls select, .att-controls input {
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 4px 8px;
+    background: var(--paper);
+  }
+  .att-wrap {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    grid-template-rows: 1fr 30px;
+    gap: 0;
+  }
+  .att-y {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: flex-end;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    padding-right: 6px;
+  }
+  .att-grid {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    aspect-ratio: 1;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .att-grid .cell {
+    aspect-ratio: 1;
+  }
+  .att-x {
+    grid-column: 2;
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    padding-top: 6px;
+  }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .legend-bar {
+    width: 200px;
+    height: 8px;
+    background: linear-gradient(90deg, #ffffff, #1e40af);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+  /* Loss + sample side-by-side */
+  .two-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .loss-chart {
+    width: 100%;
+    height: 220px;
+  }
+  .sample-box {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    border-left: 3px solid var(--accent);
+    padding: 8px 14px;
+    background: #fafbfd;
+  }
+  .sample-box .step {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-style: italic;
+    margin-bottom: 4px;
+    display: block;
+    font-size: 11px;
+  }
+  .sample-box.old { border-left-color: #d1d5db; opacity: 0.65; }
+  /* Weight histogram */
+  .hist-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .hist-row .label { color: var(--muted); }
+  .hist {
+    height: 24px;
+    display: flex;
+    align-items: end;
+    gap: 1px;
+  }
+  .hist .bar {
+    flex: 1;
+    background: var(--accent);
+    opacity: 0.7;
+    min-height: 1px;
+  }
+  .hist-row .stat { color: var(--muted); text-align: right; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="head">
+    <h1>nano-gpt-rs <span class="sub">a 446K-parameter character-level GPT</span></h1>
+    <div class="meta">run <span style="color: var(--ink);">2026-05-17 18:54</span> · <span class="live">● training</span> · step 1,247 / 2,000</div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tab active">Overview</div>
+    <div class="tab">Attention<span class="count">4 heads</span></div>
+    <div class="tab">Weights & Gradients</div>
+    <div class="tab">Samples<span class="count">25</span></div>
+    <div class="tab">Generate</div>
+  </nav>
+
+  <div class="body-grid">
+    <!-- side panel -->
+    <aside class="side">
+      <div class="grp">
+        <h3>Configuration</h3>
+        <div class="kv">
+          <span class="k">corpus</span><span class="v">shakespeare</span>
+          <span class="k">vocab</span><span class="v">65</span>
+          <span class="k">context_len</span><span class="v">256</span>
+          <span class="k">embed_dim</span><span class="v">128</span>
+          <span class="k">num_layers</span><span class="v">2</span>
+          <span class="k">num_heads</span><span class="v">2</span>
+          <span class="k">params</span><span class="v">446,208</span>
+        </div>
+      </div>
+      <div class="grp">
+        <h3>Optimizer</h3>
+        <div class="kv">
+          <span class="k">algorithm</span><span class="v">AdamW</span>
+          <span class="k">lr</span><span class="v">3e-4</span>
+          <span class="k">batch_size</span><span class="v">64</span>
+          <span class="k">device</span><span class="v">cuda:0</span>
+        </div>
+      </div>
+      <div class="grp">
+        <h3>Run history</h3>
+        <div class="run-list">
+          <div class="run current">
+            <div class="ttl">run 4 (current)</div>
+            <div class="when">18:54 · step 1247/2000</div>
+          </div>
+          <div class="run">
+            <div class="ttl">run 3</div>
+            <div class="when">18:32 · 500 steps · loss 2.88</div>
+          </div>
+          <div class="run">
+            <div class="ttl">run 2</div>
+            <div class="when">18:14 · 200 steps · loss 3.52</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main>
+      <!-- Loss + latest sample side by side -->
+      <div class="two-up">
+        <div class="figure">
+          <div class="fig-head"><div class="label">Figure 1.<small>Training loss · raw + EMA(α=0.1)</small></div></div>
+          <div class="fig-body">
+            <svg class="loss-chart" viewBox="0 0 600 220" preserveAspectRatio="none">
+              <line x1="40" y1="20" x2="40" y2="200" stroke="#888" stroke-width="0.5"/>
+              <line x1="40" y1="200" x2="595" y2="200" stroke="#888" stroke-width="0.5"/>
+              <!-- y ticks -->
+              <text x="34" y="24" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">4.0</text>
+              <text x="34" y="74" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">3.5</text>
+              <text x="34" y="124" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">3.0</text>
+              <text x="34" y="174" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">2.5</text>
+              <text x="34" y="204" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">2.0</text>
+              <text x="40" y="217" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">0</text>
+              <text x="320" y="217" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">1000</text>
+              <text x="595" y="217" text-anchor="end" font-family="ui-monospace,monospace" font-size="10" fill="#6b7180">2000</text>
+              <!-- raw -->
+              <polyline fill="none" stroke="#b45309" stroke-width="0.7" opacity="0.5"
+                points="40,30 52,38 64,32 76,46 88,40 100,52 112,48 124,60 136,55 148,68 160,64 172,76 184,72 196,84 208,80 220,92 232,88 244,100 256,96 268,108 280,104 292,116 304,112 316,124 328,120 340,132 352,128 364,140 376,136 388,148 400,144 412,156 424,152 436,164 448,160 460,172 472,168 484,180 496,176 508,188 520,184 532,196 544,192 556,200 568,196 580,200 595,196"/>
+              <!-- ema -->
+              <polyline fill="none" stroke="#1e40af" stroke-width="2"
+                points="40,32 52,38 64,46 76,54 88,62 100,70 112,78 124,86 136,94 148,102 160,110 172,118 184,124 196,130 208,135 220,140 232,144 244,148 256,152 268,156 280,159 292,162 304,165 316,168 328,171 340,173 352,175 364,177 376,179 388,181 400,183 412,185 424,186 436,188 448,189 460,190 472,191 484,192 496,193 508,194 520,195 532,195 544,196 556,197 568,197 580,198 595,198"/>
+              <!-- current point -->
+              <circle cx="380" cy="180" r="4" fill="#1e40af"/>
+              <text x="386" y="178" font-family="ui-monospace,monospace" font-size="10" fill="#1e40af">step 1247, loss 2.18</text>
+            </svg>
+          </div>
+          <div class="caption">Loss falls from ≈3.43 (random init: ln(65)≈4.17 − 0.74 from initial gradient) to 2.18 over 1,247 steps. EMA smoothing in blue.</div>
+        </div>
+
+        <div class="figure">
+          <div class="fig-head"><div class="label">Figure 2.<small>Generation samples through training</small></div></div>
+          <div class="fig-body">
+            <div class="sample-box old">
+              <span class="step">step 0 — random init</span>
+              ROMEO: kj!q;f-w?z..xqf vBpL3pYj!\nzKi;qb-fGv$\nXk
+            </div>
+            <div class="sample-box old" style="margin-top: 12px;">
+              <span class="step">step 100 — loss 3.21</span>
+              ROMEO: the the and to of the to and the and to the,\nand the
+            </div>
+            <div class="sample-box old" style="margin-top: 12px;">
+              <span class="step">step 500 — loss 2.59</span>
+              ROMEO: I will not be a man of the lord,\nAnd thou wilt not be of the king.
+            </div>
+            <div class="sample-box" style="margin-top: 12px;">
+              <span class="step">step 1247 — loss 2.18 (current)</span>
+              ROMEO: Why, hither love a maid hath stay'd it for thou,\nAnd thy son, that shall the heart's mistress
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attention heatmap -->
+      <div class="figure">
+        <div class="fig-head">
+          <div class="label">Figure 3.<small>Attention weights · single layer, single head</small></div>
+          <div class="att-controls">
+            layer
+            <select><option>0</option><option>1</option></select>
+            head
+            <select><option>0</option><option selected>1</option></select>
+            prompt
+            <input value="ROMEO: O, that I were a glove upon" style="width: 240px;" />
+          </div>
+        </div>
+        <div class="fig-body">
+          <div class="att-wrap">
+            <div class="att-y">
+              <span>0</span><span>4</span><span>8</span><span>12</span><span>16</span><span>20</span>
+            </div>
+            <div id="attGrid" class="att-grid"></div>
+            <div class="att-x">
+              <span>R</span><span>O</span><span>:</span><span>O</span><span>,</span><span>I</span><span>w</span><span>a</span><span>g</span><span>u</span>
+            </div>
+          </div>
+          <div class="legend">
+            <span>0.0</span>
+            <div class="legend-bar"></div>
+            <span>1.0</span>
+            <span style="margin-left: auto;">causal mask zeroes the upper triangle (white cells)</span>
+          </div>
+        </div>
+        <div class="caption">Each row queries earlier tokens. Darker = more attention. Notice head 1 has learned to peek at the most recent vowel — a primitive but useful trigram-style pattern.</div>
+      </div>
+
+      <!-- Weight histograms -->
+      <div class="figure">
+        <div class="fig-head"><div class="label">Figure 4.<small>Weight magnitude distribution per layer</small></div></div>
+        <div class="fig-body">
+          <div class="hist-row">
+            <span class="label">tok_embed</span>
+            <div class="hist">
+              <div class="bar" style="height: 10%;"></div><div class="bar" style="height: 25%;"></div><div class="bar" style="height: 60%;"></div><div class="bar" style="height: 90%;"></div><div class="bar" style="height: 95%;"></div><div class="bar" style="height: 70%;"></div><div class="bar" style="height: 40%;"></div><div class="bar" style="height: 20%;"></div><div class="bar" style="height: 8%;"></div><div class="bar" style="height: 4%;"></div><div class="bar" style="height: 2%;"></div>
+            </div>
+            <span class="stat">μ=0.001 σ=0.42</span>
+          </div>
+          <div class="hist-row">
+            <span class="label">block0.qkv</span>
+            <div class="hist">
+              <div class="bar" style="height: 8%;"></div><div class="bar" style="height: 18%;"></div><div class="bar" style="height: 50%;"></div><div class="bar" style="height: 95%;"></div><div class="bar" style="height: 88%;"></div><div class="bar" style="height: 52%;"></div><div class="bar" style="height: 22%;"></div><div class="bar" style="height: 10%;"></div><div class="bar" style="height: 4%;"></div><div class="bar" style="height: 2%;"></div><div class="bar" style="height: 1%;"></div>
+            </div>
+            <span class="stat">μ=0.000 σ=0.18</span>
+          </div>
+          <div class="hist-row">
+            <span class="label">block0.mlp</span>
+            <div class="hist">
+              <div class="bar" style="height: 6%;"></div><div class="bar" style="height: 14%;"></div><div class="bar" style="height: 38%;"></div><div class="bar" style="height: 88%;"></div><div class="bar" style="height: 95%;"></div><div class="bar" style="height: 64%;"></div><div class="bar" style="height: 32%;"></div><div class="bar" style="height: 14%;"></div><div class="bar" style="height: 6%;"></div><div class="bar" style="height: 3%;"></div><div class="bar" style="height: 1%;"></div>
+            </div>
+            <span class="stat">μ=0.000 σ=0.20</span>
+          </div>
+          <div class="hist-row">
+            <span class="label">block1.qkv</span>
+            <div class="hist">
+              <div class="bar" style="height: 12%;"></div><div class="bar" style="height: 28%;"></div><div class="bar" style="height: 64%;"></div><div class="bar" style="height: 95%;"></div><div class="bar" style="height: 78%;"></div><div class="bar" style="height: 40%;"></div><div class="bar" style="height: 16%;"></div><div class="bar" style="height: 8%;"></div><div class="bar" style="height: 3%;"></div><div class="bar" style="height: 1%;"></div><div class="bar" style="height: 1%;"></div>
+            </div>
+            <span class="stat">μ=0.001 σ=0.21</span>
+          </div>
+          <div class="hist-row">
+            <span class="label">lm_head</span>
+            <div class="hist">
+              <div class="bar" style="height: 6%;"></div><div class="bar" style="height: 18%;"></div><div class="bar" style="height: 55%;"></div><div class="bar" style="height: 92%;"></div><div class="bar" style="height: 90%;"></div><div class="bar" style="height: 56%;"></div><div class="bar" style="height: 26%;"></div><div class="bar" style="height: 11%;"></div><div class="bar" style="height: 5%;"></div><div class="bar" style="height: 2%;"></div><div class="bar" style="height: 1%;"></div>
+            </div>
+            <span class="stat">μ=-0.002 σ=0.28</span>
+          </div>
+        </div>
+        <div class="caption">Histograms bucket each parameter by absolute magnitude. Compare with gaussian init (σ≈0.02 for embed_dim=128) — weights have spread out as the model learns.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Procedurally generate attention heatmap cells (causal lower-triangular).
+  const grid = document.getElementById('attGrid');
+  const N = 20;
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      if (j > i) {
+        c.style.background = '#ffffff';
+      } else {
+        // simulate sharp attention to recent + diagonal + occasional spike
+        const recency = Math.exp(-(i - j) * 0.4);
+        const diag = (i === j) ? 1.0 : 0;
+        const spike = (j === Math.max(0, i - 3)) ? 0.6 : 0;
+        const noise = Math.random() * 0.15;
+        const intensity = Math.min(1, 0.15 + 0.55 * recency + 0.6 * diag + 0.4 * spike + noise);
+        const blueLight = 240;
+        const r = Math.round(255 - intensity * (255 - 30));
+        const g = Math.round(255 - intensity * (255 - 64));
+        const b = Math.round(255 - intensity * (255 - 175));
+        c.style.background = `rgb(${r}, ${g}, ${b})`;
+      }
+      grid.appendChild(c);
+    }
+  }
+</script>
+</body>
+</html>

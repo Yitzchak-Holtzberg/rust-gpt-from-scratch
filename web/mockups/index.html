@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>nano-gpt-rs · UI mockups</title>
+<style>
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    margin: 0;
+    padding: 60px 24px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p.lead { color: #8b949e; margin: 0 0 36px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 22px;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+  .card .tag {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .card h2 {
+    font-size: 18px;
+    margin: 8px 0 10px;
+    color: #58a6ff;
+  }
+  .card p { font-size: 13px; color: #c9d1d9; margin: 0 0 12px; line-height: 1.5; }
+  .card .vibe { font-size: 12px; color: #8b949e; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>UI mockup gallery</h1>
+  <p class="lead">Three different design directions. All are static HTML with mocked data — click to preview, then come back to pick.</p>
+  <div class="cards">
+    <a class="card" href="a-mission-control.html">
+      <div class="tag">A · dense</div>
+      <h2>Mission Control</h2>
+      <p>Sidebar nav + dashboard grid with stat tiles, sparklines, large loss chart, live samples, probability bars.</p>
+      <div class="vibe">Vibe: Grafana / Linear / SaaS dashboard. Info-dense, scannable.</div>
+    </a>
+    <a class="card" href="b-cinematic.html">
+      <div class="tag">B · hero</div>
+      <h2>Cinematic</h2>
+      <p>Big hero panel streaming generated text. Glassmorphism + gradients. Loss & probability cards below.</p>
+      <div class="vibe">Vibe: Apple keynote / Vercel / OpenAI Playground. Aesthetic, focused.</div>
+    </a>
+    <a class="card" href="c-research-lab.html">
+      <div class="tag">C · scholarly</div>
+      <h2>Research Lab</h2>
+      <p>Light paper-style theme. Tabs for Overview / Attention / Weights. Heatmap, weight histograms, run history.</p>
+      <div class="vibe">Vibe: TensorBoard / Weights & Biases / a Jupyter notebook. Deep, exploratory.</div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

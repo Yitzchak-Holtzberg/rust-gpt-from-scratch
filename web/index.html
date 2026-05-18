@@ -1,468 +1,909 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>nano-gpt-rs</title>
-  <style>
-    :root {
-      --bg: #0d1117;
-      --panel: #161b22;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --muted: #8b949e;
-      --accent: #58a6ff;
-      --good: #3fb950;
-      --warn: #d29922;
-      --bad: #f85149;
-      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .container {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 32px 24px 80px;
-    }
-    h1 {
-      margin: 0 0 4px;
-      font-size: 26px;
-      font-weight: 600;
-    }
-    .subtitle {
-      color: var(--muted);
-      margin-bottom: 28px;
-      font-size: 14px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .panel h2 {
-      margin: 0 0 12px;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: 8px;
-      padding: 36px;
-      text-align: center;
-      color: var(--muted);
-      transition: border-color 0.15s, background 0.15s;
-      cursor: pointer;
-    }
-    .drop-zone.dragover {
-      border-color: var(--accent);
-      background: rgba(88, 166, 255, 0.08);
-      color: var(--text);
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-    .stat {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 14px;
-    }
-    .stat-label {
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .stat-value {
-      font-family: var(--mono);
-      font-size: 18px;
-      margin-top: 4px;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .controls label { color: var(--muted); font-size: 13px; }
-    input, textarea, button {
-      font-family: inherit;
-      font-size: 14px;
-    }
-    input[type="number"], input[type="text"], textarea {
-      background: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 10px;
-    }
-    input[type="number"] { width: 90px; }
-    button {
-      background: var(--accent);
-      color: #0d1117;
-      border: none;
-      border-radius: 6px;
-      padding: 8px 16px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-    button:not(:disabled):hover { filter: brightness(1.1); }
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: var(--bg);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-top: 12px;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--good);
-      width: 0%;
-      transition: width 0.2s;
-    }
-    .loss-chart {
-      width: 100%;
-      height: 120px;
-      margin-top: 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-    }
-    .prompt-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .prompt-row input[type="text"] { flex: 1; }
-    .output {
-      font-family: var(--mono);
-      white-space: pre-wrap;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px;
-      min-height: 60px;
-      max-height: 360px;
-      overflow-y: auto;
-      font-size: 13px;
-    }
-    .status-msg {
-      color: var(--muted);
-      font-size: 13px;
-      margin-top: 8px;
-      min-height: 18px;
-    }
-    .status-msg.error { color: var(--bad); }
-    .status-msg.good { color: var(--good); }
-  </style>
+<meta charset="utf-8" />
+<title>nano-gpt-rs · live</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --paper: #ffffff;
+    --border: #e3e6eb;
+    --border-strong: #cfd4dc;
+    --ink: #111418;
+    --text: #2a2f37;
+    --muted: #6b7280;
+    --dim: #9aa1ad;
+    --pink: #d6336c;
+    --cyan: #0891b2;
+    --amber: #b45309;
+    --indigo: #4f46e5;
+    --good: #047857;
+    --bad: #b91c1c;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  .frame {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 18px 24px;
+  }
+
+  /* header */
+  .hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .brand .accent {
+    background: linear-gradient(135deg, var(--cyan), var(--indigo) 60%, var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pill .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 6px rgba(4, 120, 87, 0.5);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .pill.training { color: var(--cyan); border-color: rgba(8, 145, 178, 0.3); background: rgba(8, 145, 178, 0.05); }
+  .pill.idle { color: var(--muted); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* shared card */
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .top {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* hero / live generation */
+  .hero { padding: 14px 16px; }
+  .hero-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .hero-head .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--cyan);
+    font-weight: 600;
+  }
+  .timeline {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .timeline span {
+    padding: 1px 6px;
+    cursor: pointer;
+    border-radius: 3px;
+    user-select: none;
+  }
+  .timeline span:hover { background: var(--bg); }
+  .timeline span.active {
+    color: var(--cyan);
+    background: rgba(8, 145, 178, 0.1);
+    font-weight: 600;
+  }
+  .gen-stream {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: #fafbfc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    min-height: 168px;
+    max-height: 240px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .gen-stream.empty { color: var(--dim); font-style: italic; font-size: 12px; }
+
+  /* prob bars */
+  .probs { padding: 12px 14px; }
+  .prob-prompt {
+    font-family: var(--mono);
+    color: var(--pink);
+    background: rgba(214, 51, 108, 0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    display: inline-block;
+    font-size: 11px;
+  }
+  .prob-list { display: flex; flex-direction: column; gap: 1px; }
+  .prob {
+    display: grid;
+    grid-template-columns: 96px 1fr 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .prob-tok {
+    color: var(--ink);
+    font-weight: 700;
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(8, 145, 178, 0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .prob-bar {
+    height: 12px;
+    background: #f1f3f5;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--indigo), var(--cyan));
+    transition: width 0.5s cubic-bezier(0.2, 0.7, 0, 1);
+  }
+  .prob-num { text-align: right; color: var(--muted); font-size: 11px; }
+  .empty-msg { color: var(--dim); font-style: italic; font-size: 12px; padding: 8px 0; }
+
+  /* mid: loss + metrics */
+  .mid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .loss-card { padding: 12px 14px; }
+  .loss-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+  .loss-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .loss-stats .big {
+    font-family: var(--mono);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .loss-stats .big.cyan { color: var(--cyan); }
+  .loss-stats .big.muted { color: var(--muted); }
+  .loss-stats .label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .loss-stats .delta {
+    color: var(--good);
+    font-size: 11px;
+    margin-left: 4px;
+    font-family: var(--mono);
+  }
+  .chart { width: 100%; height: 130px; }
+  .scale-toggle { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .scale-toggle span { padding: 1px 6px; cursor: pointer; border-radius: 3px; user-select: none; }
+  .scale-toggle span.active { color: var(--ink); background: var(--bg); border: 1px solid var(--border); }
+
+  /* metrics */
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric { padding: 10px 12px; background: var(--paper); border: 1px solid var(--border); border-radius: 7px; }
+  .metric .lab {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .metric .val {
+    font-family: var(--mono);
+    font-size: 20px;
+    margin-top: 2px;
+    color: var(--ink);
+  }
+  .metric .ext { font-size: 10px; color: var(--cyan); margin-top: 2px; }
+  .metric .ext.amber { color: var(--amber); }
+  .metric .ext.pink { color: var(--pink); }
+  .metric .ext.muted { color: var(--muted); }
+
+  /* controls */
+  .controls {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .controls input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 8px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 76px;
+  }
+  .controls input[type="text"] { width: 180px; }
+  .controls .lab {
+    color: var(--muted);
+    font-size: 11px;
+    margin-right: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .controls button {
+    background: linear-gradient(135deg, var(--cyan), var(--indigo));
+    color: white;
+    border: none;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .controls button.ghost {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--border-strong);
+  }
+  .controls .spacer { flex: 1; }
+  .upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .upload:hover { border-color: var(--cyan); color: var(--cyan); }
+  .upload.dragover { border-color: var(--cyan); color: var(--cyan); background: rgba(8, 145, 178, 0.05); }
+
+  /* generation panel */
+  .gen-panel { padding: 12px 14px; }
+  .gen-output {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: #fafbfc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    min-height: 60px;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .gen-output.empty { color: var(--dim); font-style: italic; font-size: 12px; }
+
+  .status-msg { color: var(--muted); font-size: 11px; min-height: 14px; }
+  .status-msg.error { color: var(--bad); }
+  .status-msg.good { color: var(--good); }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>nano-gpt-rs</h1>
-    <div class="subtitle">Train a tiny character-level GPT on any text file, then chat with it.</div>
+<div class="frame">
 
-    <div class="panel">
-      <h2>1. Upload corpus</h2>
-      <div class="drop-zone" id="dropZone">
-        Drop a .txt file here, or click to choose one
-        <input type="file" id="fileInput" accept=".txt,text/plain" hidden />
-      </div>
-      <div class="status-msg" id="uploadStatus"></div>
-
-      <div class="stats-grid" id="statsGrid" style="display: none;">
-        <div class="stat"><div class="stat-label">Vocab size</div><div class="stat-value" id="statVocab">—</div></div>
-        <div class="stat"><div class="stat-label">Parameters</div><div class="stat-value" id="statParams">—</div></div>
-        <div class="stat"><div class="stat-label">Samples</div><div class="stat-value" id="statSamples">—</div></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2>2. Train</h2>
-      <div class="controls">
-        <label>Steps: <input type="number" id="stepsInput" value="500" min="1" max="100000" /></label>
-        <label>Batch size: <input type="number" id="batchInput" value="16" min="1" max="128" /></label>
-        <label>Learning rate: <input type="number" id="lrInput" value="0.0003" step="0.0001" min="0.00001" /></label>
-        <button id="trainBtn" disabled>Train</button>
-      </div>
-      <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
-      <div class="status-msg" id="trainStatus"></div>
-      <svg class="loss-chart" id="lossChart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
-    </div>
-
-    <div class="panel">
-      <h2>3. Ask a question</h2>
-      <div class="prompt-row">
-        <input type="text" id="promptInput" placeholder='e.g. "ROMEO:"' />
-        <input type="number" id="tokensInput" value="200" min="1" max="2000" />
-        <button id="generateBtn" disabled>Generate</button>
-      </div>
-      <div class="output" id="output">No output yet.</div>
-      <div class="status-msg" id="generateStatus"></div>
+  <div class="hd">
+    <div class="brand">nano-gpt-rs <span class="accent">· live</span></div>
+    <div class="pills">
+      <span class="pill" id="devicePill"><span class="dot"></span><span id="deviceLabel">starting up</span></span>
+      <span class="pill idle" id="progressPill">idle</span>
+      <span class="pill" id="corpusPill">no corpus loaded</span>
     </div>
   </div>
 
-  <script>
-    const elements = {
-      dropZone: document.getElementById("dropZone"),
-      fileInput: document.getElementById("fileInput"),
-      uploadStatus: document.getElementById("uploadStatus"),
-      statsGrid: document.getElementById("statsGrid"),
-      statVocab: document.getElementById("statVocab"),
-      statParams: document.getElementById("statParams"),
-      statSamples: document.getElementById("statSamples"),
-      stepsInput: document.getElementById("stepsInput"),
-      batchInput: document.getElementById("batchInput"),
-      lrInput: document.getElementById("lrInput"),
-      trainBtn: document.getElementById("trainBtn"),
-      progressFill: document.getElementById("progressFill"),
-      trainStatus: document.getElementById("trainStatus"),
-      lossChart: document.getElementById("lossChart"),
-      promptInput: document.getElementById("promptInput"),
-      tokensInput: document.getElementById("tokensInput"),
-      generateBtn: document.getElementById("generateBtn"),
-      output: document.getElementById("output"),
-      generateStatus: document.getElementById("generateStatus"),
-    };
+  <div class="top">
+    <section class="card hero">
+      <div class="hero-head">
+        <div class="label">Watching it learn — generating from <span id="heroPrompt" style="color: var(--pink); font-family: var(--mono);">"…"</span></div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+      <div class="gen-stream empty" id="genStream">No samples yet. Start training to watch the model learn.</div>
+    </section>
 
-    let pollHandle = null;
+    <section class="card probs">
+      <h2>Next-token probability</h2>
+      <div class="prob-prompt" id="probPrompt">prompt: "…"</div>
+      <div class="prob-list" id="probList"><div class="empty-msg">Waiting for first probe…</div></div>
+    </section>
+  </div>
 
-    function formatNumber(value) {
-      return new Intl.NumberFormat().format(value);
+  <div class="mid">
+    <section class="card loss-card">
+      <div class="loss-head">
+        <div class="loss-stats">
+          <div>
+            <div class="big" id="currentLoss">—</div>
+            <div class="label">current loss <span class="delta" id="lossDelta"></span></div>
+          </div>
+          <div>
+            <div class="big cyan" id="bestLoss">—</div>
+            <div class="label">best</div>
+          </div>
+          <div>
+            <div class="big muted" id="elapsed">0:00</div>
+            <div class="label">elapsed</div>
+          </div>
+        </div>
+        <div class="scale-toggle" id="scaleToggle">
+          <span class="active" data-scale="linear">linear</span><span data-scale="log">log</span>
+        </div>
+      </div>
+      <svg class="chart" id="lossChart" viewBox="0 0 800 130" preserveAspectRatio="none"></svg>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="lab">Throughput</div>
+        <div class="val" id="tokensPerSec">—</div>
+        <div class="ext pink">tokens / sec</div>
+      </div>
+      <div class="metric">
+        <div class="lab">GPU util</div>
+        <div class="val" id="gpuUtil">—</div>
+        <div class="ext muted" id="gpuSub">probing…</div>
+      </div>
+      <div class="metric">
+        <div class="lab">VRAM</div>
+        <div class="val" id="vramVal">—</div>
+        <div class="ext amber" id="vramSub">—</div>
+      </div>
+      <div class="metric">
+        <div class="lab">ETA</div>
+        <div class="val" id="eta">—</div>
+        <div class="ext" id="etaSub">at — steps/s</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="controls">
+    <span class="lab">Steps</span><input id="stepsInput" value="3000" />
+    <span class="lab">Batch</span><input id="batchInput" value="32" />
+    <span class="lab">LR</span><input id="lrInput" value="1e-3" />
+    <span class="lab">Prompt</span><input type="text" id="promptInput" value="ROMEO:" />
+    <span class="lab">Tokens</span><input id="tokensInput" value="200" />
+    <label class="upload" id="uploadZone">
+      <span id="uploadLabel">📂 replace corpus</span>
+      <input type="file" id="fileInput" accept=".txt,text/plain" hidden />
+    </label>
+    <span class="spacer"></span>
+    <button class="ghost" id="saveBtn" disabled title="Save weights + tokenizer + dataset to data/checkpoint.*">💾 Save</button>
+    <button class="ghost" id="loadBtn" title="Load weights + tokenizer + dataset from data/checkpoint.*">📥 Load</button>
+    <button class="ghost" id="generateBtn" disabled>Generate</button>
+    <button id="trainBtn" disabled>Train</button>
+  </div>
+
+  <section class="card gen-panel">
+    <h2>Generated output <span class="status-msg" id="generateStatus" style="text-transform: none; letter-spacing: 0;"></span></h2>
+    <div class="gen-output empty" id="genOutput">Nothing yet — type a prompt above and hit Generate.</div>
+  </section>
+
+</div>
+
+<script>
+const el = {
+  deviceLabel: document.getElementById("deviceLabel"),
+  devicePill: document.getElementById("devicePill"),
+  progressPill: document.getElementById("progressPill"),
+  corpusPill: document.getElementById("corpusPill"),
+  heroPrompt: document.getElementById("heroPrompt"),
+  timeline: document.getElementById("timeline"),
+  genStream: document.getElementById("genStream"),
+  probPrompt: document.getElementById("probPrompt"),
+  probList: document.getElementById("probList"),
+  currentLoss: document.getElementById("currentLoss"),
+  lossDelta: document.getElementById("lossDelta"),
+  bestLoss: document.getElementById("bestLoss"),
+  elapsed: document.getElementById("elapsed"),
+  scaleToggle: document.getElementById("scaleToggle"),
+  lossChart: document.getElementById("lossChart"),
+  tokensPerSec: document.getElementById("tokensPerSec"),
+  gpuUtil: document.getElementById("gpuUtil"),
+  gpuSub: document.getElementById("gpuSub"),
+  vramVal: document.getElementById("vramVal"),
+  vramSub: document.getElementById("vramSub"),
+  eta: document.getElementById("eta"),
+  etaSub: document.getElementById("etaSub"),
+  stepsInput: document.getElementById("stepsInput"),
+  batchInput: document.getElementById("batchInput"),
+  lrInput: document.getElementById("lrInput"),
+  promptInput: document.getElementById("promptInput"),
+  tokensInput: document.getElementById("tokensInput"),
+  trainBtn: document.getElementById("trainBtn"),
+  generateBtn: document.getElementById("generateBtn"),
+  generateStatus: document.getElementById("generateStatus"),
+  genOutput: document.getElementById("genOutput"),
+  uploadZone: document.getElementById("uploadZone"),
+  uploadLabel: document.getElementById("uploadLabel"),
+  fileInput: document.getElementById("fileInput"),
+  saveBtn: document.getElementById("saveBtn"),
+  loadBtn: document.getElementById("loadBtn"),
+};
+
+let lossScale = "linear";
+let selectedSampleStep = null; // null = follow latest
+let pollHandle = null;
+let lastStatus = null;
+
+// ---------- formatting helpers ----------
+function fmtNumber(n) { return new Intl.NumberFormat().format(n); }
+function fmtTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+function escapeForDisplay(text) {
+  // Leave newlines so white-space: pre-wrap renders them; HTML escape the rest
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ---------- polling ----------
+async function poll() {
+  try {
+    const r = await fetch("/api/status");
+    if (!r.ok) return;
+    const s = await r.json();
+    lastStatus = s;
+    render(s);
+  } catch (_) { /* network blip; keep going */ }
+}
+function startPolling(intervalMs) {
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = setInterval(poll, intervalMs);
+}
+
+// ---------- render ----------
+function render(s) {
+  // pills
+  el.deviceLabel.textContent = s.is_training ? "training" : "ready";
+  el.devicePill.firstElementChild.style.background = s.is_training ? "var(--cyan)" : "var(--good)";
+  if (s.is_training && s.target_steps > 0) {
+    el.progressPill.textContent = `step ${fmtNumber(s.current_step)} / ${fmtNumber(s.target_steps)} · ${s.steps_per_second.toFixed(1)} steps/s`;
+    el.progressPill.className = "pill training";
+  } else if (s.current_step > 0) {
+    el.progressPill.textContent = `done · ${fmtNumber(s.current_step)} steps · final loss ${s.last_loss != null ? s.last_loss.toFixed(3) : "—"}`;
+    el.progressPill.className = "pill";
+  } else {
+    el.progressPill.textContent = "idle";
+    el.progressPill.className = "pill idle";
+  }
+  if (s.corpus_loaded) {
+    el.corpusPill.textContent = `${fmtNumber(s.total_samples)} samples · vocab ${s.vocab_size} · ${fmtNumber(s.total_parameters)} params`;
+    el.trainBtn.disabled = s.is_training;
+    el.generateBtn.disabled = s.is_training;
+    el.saveBtn.disabled = s.is_training;
+  } else {
+    el.corpusPill.textContent = "no corpus loaded";
+    el.trainBtn.disabled = true;
+    el.generateBtn.disabled = true;
+    el.saveBtn.disabled = true;
+  }
+  el.loadBtn.disabled = s.is_training;
+
+  // hero prompt label
+  if (s.sample_prompt) {
+    el.heroPrompt.textContent = `"${s.sample_prompt}"`;
+    el.probPrompt.textContent = `prompt: "${s.sample_prompt}"`;
+  }
+
+  // timeline + sample stream
+  renderTimeline(s.samples || []);
+  renderActiveSample(s.samples || []);
+
+  // probabilities
+  renderProbs(s.next_token_probs || []);
+
+  // loss numbers
+  if (s.last_loss != null) {
+    el.currentLoss.textContent = s.last_loss.toFixed(3);
+    if (s.recent_losses && s.recent_losses.length > 1) {
+      const start = s.recent_losses[0];
+      const delta = start - s.last_loss;
+      el.lossDelta.textContent = delta > 0 ? `↓ ${delta.toFixed(2)}` : `↑ ${(-delta).toFixed(2)}`;
+      el.lossDelta.style.color = delta > 0 ? "var(--good)" : "var(--bad)";
+    } else {
+      el.lossDelta.textContent = "";
     }
+  } else {
+    el.currentLoss.textContent = "—";
+    el.lossDelta.textContent = "";
+  }
+  el.bestLoss.textContent = s.best_loss != null ? s.best_loss.toFixed(3) : "—";
+  el.elapsed.textContent = fmtTime(s.elapsed_seconds || 0);
 
-    function setStatus(node, message, severity) {
-      node.textContent = message;
-      node.className = "status-msg" + (severity ? " " + severity : "");
-    }
+  // chart
+  drawLossChart(s.recent_losses || []);
 
-    // ----- file upload -----
+  // metrics
+  el.tokensPerSec.textContent = s.tokens_per_second > 0 ? fmtNumber(Math.round(s.tokens_per_second)) : "—";
+  if (s.gpu) {
+    el.gpuUtil.textContent = `${s.gpu.utilization_percent}%`;
+    el.gpuSub.textContent = "RTX · CUDA";
+    el.vramVal.innerHTML = `${fmtNumber(s.gpu.vram_used_mib)}<span style="color: var(--muted); font-size: 12px;"> MiB</span>`;
+    const pct = s.gpu.vram_total_mib > 0
+      ? Math.round((s.gpu.vram_used_mib / s.gpu.vram_total_mib) * 100)
+      : 0;
+    el.vramSub.textContent = `${pct}% of ${(s.gpu.vram_total_mib/1024).toFixed(1)} GB`;
+  } else {
+    el.gpuUtil.textContent = "—";
+    el.gpuSub.textContent = "CPU mode";
+    el.vramVal.textContent = "—";
+    el.vramSub.textContent = "—";
+  }
+  el.eta.textContent = s.is_training ? fmtTime(s.eta_seconds || 0) : "—";
+  el.etaSub.textContent = s.is_training
+    ? `at ${s.steps_per_second.toFixed(1)} steps/s`
+    : "(not training)";
+}
 
-    elements.dropZone.addEventListener("click", () => elements.fileInput.click());
-
-    elements.dropZone.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      elements.dropZone.classList.add("dragover");
+function renderTimeline(samples) {
+  el.timeline.innerHTML = "";
+  if (!samples.length) return;
+  // Show all samples (capped at 30 on backend). User clicks to pin.
+  samples.forEach((sample, idx) => {
+    const span = document.createElement("span");
+    span.textContent = sample.step;
+    const isActive = selectedSampleStep == null
+      ? idx === samples.length - 1
+      : sample.step === selectedSampleStep;
+    if (isActive) span.classList.add("active");
+    span.addEventListener("click", () => {
+      selectedSampleStep = sample.step;
+      renderActiveSample(samples);
+      renderTimeline(samples);
     });
-    elements.dropZone.addEventListener("dragleave", () => {
-      elements.dropZone.classList.remove("dragover");
+    el.timeline.appendChild(span);
+  });
+  // "follow latest" pill
+  if (selectedSampleStep != null) {
+    const reset = document.createElement("span");
+    reset.textContent = "↻ latest";
+    reset.style.color = "var(--indigo)";
+    reset.addEventListener("click", () => {
+      selectedSampleStep = null;
+      renderActiveSample(samples);
+      renderTimeline(samples);
     });
-    elements.dropZone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      elements.dropZone.classList.remove("dragover");
-      const file = event.dataTransfer.files[0];
-      if (file) uploadFile(file);
+    el.timeline.appendChild(reset);
+  }
+}
+function renderActiveSample(samples) {
+  if (!samples.length) {
+    el.genStream.textContent = "No samples yet. Start training to watch the model learn.";
+    el.genStream.classList.add("empty");
+    return;
+  }
+  let sample;
+  if (selectedSampleStep == null) {
+    sample = samples[samples.length - 1];
+  } else {
+    sample = samples.find((s) => s.step === selectedSampleStep) || samples[samples.length - 1];
+  }
+  el.genStream.classList.remove("empty");
+  el.genStream.textContent = sample.text;
+}
+
+function renderProbs(probs) {
+  if (!probs.length) {
+    el.probList.innerHTML = '<div class="empty-msg">Waiting for first probe…</div>';
+    return;
+  }
+  const html = probs.map((p) => {
+    const pct = (p.probability * 100).toFixed(p.probability < 0.01 ? 2 : 1);
+    const width = Math.min(100, p.probability * 200).toFixed(1); // 0.5 maps to 100%
+    return `<div class="prob">
+      <span class="prob-tok">${escapeForDisplay(p.label)}</span>
+      <div class="prob-bar"><div class="prob-fill" style="width: ${width}%;"></div></div>
+      <span class="prob-num">${pct}%</span>
+    </div>`;
+  }).join("");
+  el.probList.innerHTML = html;
+}
+
+function drawLossChart(losses) {
+  el.lossChart.innerHTML = "";
+  if (!losses.length) return;
+  const W = 800, H = 130, padT = 6, padB = 14, padL = 4, padR = 4;
+  const innerH = H - padT - padB;
+  const innerW = W - padL - padR;
+
+  const transform = (v) => lossScale === "log" ? Math.log(Math.max(v, 1e-6)) : v;
+  const xs = losses.map((_, i) => padL + (i / Math.max(losses.length - 1, 1)) * innerW);
+  const ts = losses.map(transform);
+  const tMin = Math.min(...ts);
+  const tMax = Math.max(...ts);
+  const range = Math.max(tMax - tMin, 1e-6);
+  const ys = ts.map((t) => padT + (1 - (t - tMin) / range) * innerH);
+
+  // EMA smoothing
+  const alpha = 0.12;
+  let ema = ts[0];
+  const emaYs = ts.map((t) => {
+    ema = alpha * t + (1 - alpha) * ema;
+    return padT + (1 - (ema - tMin) / range) * innerH;
+  });
+
+  // gridlines
+  for (let g = 1; g <= 3; g++) {
+    const y = padT + (g / 4) * innerH;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", 0); line.setAttribute("x2", W);
+    line.setAttribute("y1", y); line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#e3e6eb");
+    line.setAttribute("stroke-dasharray", "2 4");
+    el.lossChart.appendChild(line);
+  }
+
+  // raw line (faint)
+  const rawPts = losses.map((_, i) => `${xs[i].toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const raw = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  raw.setAttribute("points", rawPts);
+  raw.setAttribute("fill", "none");
+  raw.setAttribute("stroke", "#4f46e5");
+  raw.setAttribute("stroke-width", "0.8");
+  raw.setAttribute("opacity", "0.45");
+  el.lossChart.appendChild(raw);
+
+  // EMA line (strong)
+  const emaPts = emaYs.map((y, i) => `${xs[i].toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const emaLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  emaLine.setAttribute("points", emaPts);
+  emaLine.setAttribute("fill", "none");
+  emaLine.setAttribute("stroke", "#0891b2");
+  emaLine.setAttribute("stroke-width", "2");
+  el.lossChart.appendChild(emaLine);
+
+  // current point marker
+  const cx = xs[xs.length - 1];
+  const cy = emaYs[emaYs.length - 1];
+  const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", 3.5);
+  dot.setAttribute("fill", "#0891b2");
+  el.lossChart.appendChild(dot);
+
+  // y-axis tick labels (min / max)
+  const minLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  minLabel.setAttribute("x", 4);
+  minLabel.setAttribute("y", padT + 10);
+  minLabel.setAttribute("fill", "#6b7280");
+  minLabel.setAttribute("font-family", "ui-monospace, monospace");
+  minLabel.setAttribute("font-size", "10");
+  minLabel.textContent = (lossScale === "log" ? Math.exp(tMax) : tMax).toFixed(2);
+  el.lossChart.appendChild(minLabel);
+  const maxLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  maxLabel.setAttribute("x", 4);
+  maxLabel.setAttribute("y", H - 4);
+  maxLabel.setAttribute("fill", "#6b7280");
+  maxLabel.setAttribute("font-family", "ui-monospace, monospace");
+  maxLabel.setAttribute("font-size", "10");
+  maxLabel.textContent = (lossScale === "log" ? Math.exp(tMin) : tMin).toFixed(2);
+  el.lossChart.appendChild(maxLabel);
+}
+
+// ---------- scale toggle ----------
+el.scaleToggle.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-scale]");
+  if (!t) return;
+  lossScale = t.dataset.scale;
+  for (const s of el.scaleToggle.querySelectorAll("span")) s.classList.toggle("active", s === t);
+  if (lastStatus) drawLossChart(lastStatus.recent_losses || []);
+});
+
+// ---------- corpus upload ----------
+async function uploadCorpus(file) {
+  el.uploadLabel.textContent = `Uploading ${file.name}…`;
+  const text = await file.text();
+  try {
+    const r = await fetch("/api/upload", { method: "POST", body: text });
+    if (!r.ok) throw new Error(await r.text());
+    el.uploadLabel.textContent = `📂 ${file.name}`;
+    selectedSampleStep = null;
+    poll();
+  } catch (err) {
+    el.uploadLabel.textContent = `Upload failed: ${err.message}`;
+  }
+}
+el.uploadZone.addEventListener("click", () => el.fileInput.click());
+el.fileInput.addEventListener("change", () => { if (el.fileInput.files[0]) uploadCorpus(el.fileInput.files[0]); });
+el.uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); el.uploadZone.classList.add("dragover"); });
+el.uploadZone.addEventListener("dragleave", () => el.uploadZone.classList.remove("dragover"));
+el.uploadZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  el.uploadZone.classList.remove("dragover");
+  if (e.dataTransfer.files[0]) uploadCorpus(e.dataTransfer.files[0]);
+});
+
+// ---------- checkpoint save / load ----------
+el.saveBtn.addEventListener("click", async () => {
+  el.saveBtn.disabled = true;
+  const original = el.saveBtn.textContent;
+  el.saveBtn.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/save_checkpoint", { method: "POST" });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    el.saveBtn.textContent = `✓ saved ${fmtNumber(data.total_parameters)} params`;
+    setTimeout(() => { el.saveBtn.textContent = original; }, 2500);
+  } catch (err) {
+    el.saveBtn.textContent = "save failed";
+    console.error(err);
+    setTimeout(() => { el.saveBtn.textContent = original; }, 3000);
+  } finally {
+    el.saveBtn.disabled = false;
+  }
+});
+
+el.loadBtn.addEventListener("click", async () => {
+  el.loadBtn.disabled = true;
+  const original = el.loadBtn.textContent;
+  el.loadBtn.textContent = "Loading…";
+  try {
+    const r = await fetch("/api/load_checkpoint", { method: "POST" });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    el.loadBtn.textContent = `✓ loaded ${fmtNumber(data.total_parameters)} params`;
+    selectedSampleStep = null;
+    poll();
+    setTimeout(() => { el.loadBtn.textContent = original; }, 2500);
+  } catch (err) {
+    el.loadBtn.textContent = "load failed";
+    console.error(err);
+    setTimeout(() => { el.loadBtn.textContent = original; }, 3000);
+  } finally {
+    el.loadBtn.disabled = false;
+  }
+});
+
+// ---------- training trigger ----------
+el.trainBtn.addEventListener("click", async () => {
+  const steps = parseInt(el.stepsInput.value, 10);
+  const batch_size = parseInt(el.batchInput.value, 10);
+  const learning_rate = parseFloat(el.lrInput.value);
+  const sample_prompt = el.promptInput.value || "ROMEO:";
+  if (!Number.isFinite(steps) || steps < 1) return;
+  el.trainBtn.disabled = true;
+  el.generateBtn.disabled = true;
+  selectedSampleStep = null;
+  try {
+    const r = await fetch("/api/train", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ steps, batch_size, learning_rate, sample_prompt }),
     });
-    elements.fileInput.addEventListener("change", () => {
-      const file = elements.fileInput.files[0];
-      if (file) uploadFile(file);
+    if (!r.ok) throw new Error(await r.text());
+  } catch (err) {
+    el.trainBtn.disabled = false;
+    el.generateBtn.disabled = false;
+  }
+});
+
+// ---------- generation ----------
+el.generateBtn.addEventListener("click", async () => {
+  const prompt = el.promptInput.value || "";
+  const max_new_tokens = parseInt(el.tokensInput.value, 10);
+  if (!prompt) {
+    el.generateStatus.textContent = "Enter a prompt first.";
+    el.generateStatus.className = "status-msg error";
+    return;
+  }
+  el.generateBtn.disabled = true;
+  el.generateStatus.textContent = "Generating…";
+  el.generateStatus.className = "status-msg";
+  try {
+    const r = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, max_new_tokens, temperature: 0.9, top_k: 40 }),
     });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    el.genOutput.textContent = data.output;
+    el.genOutput.classList.remove("empty");
+    el.generateStatus.textContent = "";
+  } catch (err) {
+    el.generateStatus.textContent = `Failed: ${err.message}`;
+    el.generateStatus.className = "status-msg error";
+  } finally {
+    el.generateBtn.disabled = false;
+  }
+});
 
-    async function uploadFile(file) {
-      setStatus(elements.uploadStatus, `Uploading "${file.name}"...`);
-      const text = await file.text();
-      try {
-        const response = await fetch("/api/upload", { method: "POST", body: text });
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        elements.statVocab.textContent = formatNumber(data.vocab_size);
-        elements.statParams.textContent = formatNumber(data.total_parameters);
-        elements.statSamples.textContent = formatNumber(data.total_samples);
-        elements.statsGrid.style.display = "grid";
-        elements.trainBtn.disabled = false;
-        elements.generateBtn.disabled = false;
-        setStatus(elements.uploadStatus,
-          `Loaded "${file.name}" - fresh model initialized.`, "good");
-        resetTrainingUi();
-      } catch (err) {
-        setStatus(elements.uploadStatus, `Upload failed: ${err.message}`, "error");
-      }
-    }
-
-    // ----- training -----
-
-    elements.trainBtn.addEventListener("click", async () => {
-      const steps = parseInt(elements.stepsInput.value, 10);
-      const batchSize = parseInt(elements.batchInput.value, 10);
-      const learningRate = parseFloat(elements.lrInput.value);
-      if (!Number.isFinite(steps) || steps < 1) return;
-
-      elements.trainBtn.disabled = true;
-      elements.generateBtn.disabled = true;
-      setStatus(elements.trainStatus, "Starting training...");
-      try {
-        const response = await fetch("/api/train", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            steps,
-            batch_size: batchSize,
-            learning_rate: learningRate,
-          }),
-        });
-        if (!response.ok) throw new Error(await response.text());
-        startPolling();
-      } catch (err) {
-        setStatus(elements.trainStatus, `Could not start: ${err.message}`, "error");
-        elements.trainBtn.disabled = false;
-        elements.generateBtn.disabled = false;
-      }
-    });
-
-    function startPolling() {
-      if (pollHandle) clearInterval(pollHandle);
-      pollHandle = setInterval(refreshStatus, 400);
-      refreshStatus();
-    }
-
-    function stopPolling() {
-      if (pollHandle) clearInterval(pollHandle);
-      pollHandle = null;
-    }
-
-    async function refreshStatus() {
-      try {
-        const response = await fetch("/api/status");
-        const status = await response.json();
-        renderTrainingStatus(status);
-        if (!status.is_training) {
-          stopPolling();
-          if (status.current_step > 0) {
-            const finalLoss = status.last_loss != null ? status.last_loss.toFixed(4) : "—";
-            setStatus(elements.trainStatus,
-              `Done. ${status.current_step}/${status.target_steps} steps, final loss ${finalLoss}.`,
-              "good");
-          }
-          elements.trainBtn.disabled = false;
-          elements.generateBtn.disabled = false;
-        }
-      } catch (err) {
-        // network blip; keep polling
-      }
-    }
-
-    function renderTrainingStatus(status) {
-      // Populate stats panel and enable buttons whenever a corpus is loaded
-      if (status.corpus_loaded) {
-        elements.statVocab.textContent = formatNumber(status.vocab_size);
-        elements.statParams.textContent = formatNumber(status.total_parameters);
-        elements.statSamples.textContent = formatNumber(status.total_samples);
-        elements.statsGrid.style.display = "grid";
-        if (!status.is_training) {
-          elements.trainBtn.disabled = false;
-          elements.generateBtn.disabled = false;
-        }
-        if (!elements.uploadStatus.textContent) {
-          setStatus(elements.uploadStatus,
-            "Corpus loaded - drop a different file to replace it.", "good");
-        }
-      }
-
-      const progressPercent = status.target_steps > 0
-        ? (status.current_step / status.target_steps) * 100
-        : 0;
-      elements.progressFill.style.width = `${progressPercent.toFixed(1)}%`;
-      if (status.is_training) {
-        const loss = status.last_loss != null ? status.last_loss.toFixed(4) : "—";
-        setStatus(elements.trainStatus,
-          `step ${status.current_step}/${status.target_steps} - loss ${loss} - ${status.steps_per_second.toFixed(1)} steps/s`);
-      }
-      drawLossChart(status.recent_losses);
-    }
-
-    function drawLossChart(losses) {
-      const svg = elements.lossChart;
-      svg.innerHTML = "";
-      if (!losses || losses.length === 0) return;
-
-      const width = 600;
-      const height = 120;
-      const padding = 8;
-      const minLoss = Math.min(...losses);
-      const maxLoss = Math.max(...losses);
-      const range = Math.max(maxLoss - minLoss, 1e-6);
-
-      const points = losses.map((loss, index) => {
-        const x = padding + (index / Math.max(losses.length - 1, 1)) * (width - 2 * padding);
-        const y = padding + (1 - (loss - minLoss) / range) * (height - 2 * padding);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(" ");
-
-      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      polyline.setAttribute("points", points);
-      polyline.setAttribute("fill", "none");
-      polyline.setAttribute("stroke", "#3fb950");
-      polyline.setAttribute("stroke-width", "1.5");
-      svg.appendChild(polyline);
-
-      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("x", padding);
-      label.setAttribute("y", padding + 12);
-      label.setAttribute("fill", "#8b949e");
-      label.setAttribute("font-size", "11");
-      label.setAttribute("font-family", "ui-monospace, monospace");
-      label.textContent = `min ${minLoss.toFixed(3)}  max ${maxLoss.toFixed(3)}`;
-      svg.appendChild(label);
-    }
-
-    function resetTrainingUi() {
-      elements.progressFill.style.width = "0%";
-      elements.lossChart.innerHTML = "";
-      setStatus(elements.trainStatus, "");
-    }
-
-    // ----- generation -----
-
-    elements.generateBtn.addEventListener("click", async () => {
-      const prompt = elements.promptInput.value || "";
-      const maxNewTokens = parseInt(elements.tokensInput.value, 10);
-      if (!prompt) {
-        setStatus(elements.generateStatus, "Enter a prompt first.", "error");
-        return;
-      }
-      elements.generateBtn.disabled = true;
-      setStatus(elements.generateStatus, "Generating...");
-      try {
-        const response = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            max_new_tokens: maxNewTokens,
-            temperature: 1.0,
-            top_k: 40,
-          }),
-        });
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        elements.output.textContent = data.output;
-        setStatus(elements.generateStatus, "", "good");
-      } catch (err) {
-        setStatus(elements.generateStatus, `Failed: ${err.message}`, "error");
-      } finally {
-        elements.generateBtn.disabled = false;
-      }
-    });
-
-    // Restore state on page load (in case server is mid-training already)
-    refreshStatus().then(() => {
-      // No corpus yet — buttons stay disabled.
-    });
-  </script>
+// ---------- boot ----------
+poll();
+startPolling(400);
+</script>
 </body>
 </html>
