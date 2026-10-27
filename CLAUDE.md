@@ -1,51 +1,71 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for coding agents working in this repository.
 
-## Build & Test Commands
+## Build and test
 
 ```bash
-cargo build                    # Debug build
-cargo build --release          # Optimized build (opt-level 3)
-cargo test                     # Run all tests
-cargo test tensor              # Run tensor tests only
-cargo test tokenizer           # Run tokenizer tests only
-cargo test <test_name>         # Run a single test by name
-cargo run --release --bin train -- data/input.txt   # Train on text file
-cargo run --release --bin generate -- "prompt"       # Generate text
+cargo build
+cargo build --release
+cargo test
+cargo run --release --bin train -- data/input.txt 5000 64
+cargo run --release --bin generate -- "ROMEO:" 200
+cargo run --release --bin serve
+cargo run --release --features cuda --bin serve
 ```
 
-## Architecture
+## What this repository is
 
-This is a 2M-parameter GPT built from scratch in pure Rust with no ML framework. The codebase follows a 6-phase incremental build (see README.md for full roadmap):
+This is an educational GPT project in Rust. It began with a hand-written tensor engine and model implementation; that implementation remains in git history through commit `1ebcd6d`. Commit `ff9148c` migrated tensor/autograd work to Candle so end-to-end training could be completed.
 
-1. **Tensor engine** (`src/tensor/mod.rs`) — Flat `Vec<f32>` with `Vec<usize>` shape. Row-major layout. All ops return new tensors (immutable style). No automatic broadcasting. Panics on shape mismatches.
+Do not describe the current code as “no ML framework” or as a 2M-parameter model.
 
-2. **Tokenizer & Dataset** (`src/tokenizer/`) — `CharTokenizer` maps characters to integer IDs. `Dataset` produces sliding-window `(input, target)` pairs of length `context_len`.
+## Current architecture
 
-3. **Model** (`src/model/`) — `Config` holds hyperparameters (2 layers, 2 heads, embed_dim=128, context_len=256). Each component (`attention`, `mlp`, `block`, `gpt`) has a `*Weights` struct and a free-function `*_forward` (not a method). Shape flow for attention: `[T,D] → [T,3D] → split Q/K/V → [H,T,Dh] → scores → softmax → [T,D]`.
+`Config::nano()` in `src/gpt.rs` is roughly 11M parameters with BPE(1024):
 
-4. **Training** (`src/training/mod.rs`) — Cross-entropy loss, AdamW optimizer, backpropagation.
+- 6 transformer blocks
+- 6 attention heads
+- embedding width 384
+- context 256
+- pre-norm RMSNorm
+- RoPE position encoding
+- SwiGLU MLP
+- tied token embedding / LM-head weights
+- dropout 0.1
+- Candle tensors + autograd
 
-5. **Inference** (`src/inference/mod.rs`) — Temperature + top-k sampling, autoregressive generation loop.
+## Two tokenizer/training paths
 
-Entry points: `src/bin/train.rs` and `src/bin/generate.rs`.
+Keep these distinct:
 
-## Key Conventions
+- **Server:** `BpeTokenizer`, 1024-token byte-level BPE, live dashboard, checkpoint support, optional CUDA.
+- **CLI/WASM:** `CharTokenizer`, character-level artifacts (`vocab.json`).
 
-- **TDD approach**: Tests are written first (in `tests/`), implementations fill in `todo!()` stubs
-- Forward pass functions are module-level free functions, not methods on weight structs
-- Weight structs (`AttentionWeights`, `MlpWeights`, etc.) have a `::zeros(config)` constructor
-- Dependencies are minimal: `rand`, `serde`, `serde_json` only
-- Data files (`.txt`, `.bin`, `.safetensors`) are gitignored; download Tiny Shakespeare per `data/README.md`
+Do not assume server BPE checkpoints are interchangeable with the character-tokenizer WASM path.
 
-## Collaboration Style
+## Server layout
 
-The user is learning Rust and LLMs from scratch through this project.
-- Break each step into a lesson: explain the concept and *why* it works
-- Provide relevant Rust syntax patterns as hints
-- Do NOT give the exact solution — guide the user to figure it out themselves
+- `src/server.rs` — runtime, router, device selection
+- `src/server/state.rs` — shared state/status
+- `src/server/handlers.rs` — endpoints, model/tokenizer loading, checkpoints
+- `src/server/training.rs` — optimizer loop, LR schedule, gradient clipping
+- `src/server/monitoring.rs` — generation probes, token probabilities, GPU stats
 
-## Signature Conventions (deviations from original stubs)
+The current split is intentional; avoid collapsing these concerns back into the binary.
 
-- `mlp_forward` does not take `cfg` — the weights already encode the dimensions, so `cfg` was redundant. Removed to keep signatures clean.
+## Training caveats
+
+- A `/api/train` request currently creates a fresh AdamW optimizer. Model weights persist, optimizer moments do not.
+- Checkpoints do not persist optimizer state.
+- There is currently no validation split.
+- The original short runs were badly undertrained relative to Karpathy's Shakespeare baseline. Do not diagnose sample quality from a few hundred steps.
+- When debugging training, change one variable at a time and prefer a fixed-seed character-level baseline before BPE or architectural experiments.
+
+Karpathy's reference Shakespeare-char recipe uses 6 layers, 6 heads, width 384, context 256, batch 64, 5000 iterations, LR 1e-3, beta2 0.99, warmup 100, and dropout 0.2.
+
+## Historical hand-rolled implementation
+
+The custom tensor engine was substantive learning work, not abandoned because it was broken. It implemented tensor operations, forward model components, loss, generation, and primitive backward derivatives. The project switched to Candle before implementing the complete layer-level backward graph.
+
+Preserve that history in documentation and avoid deleting historical notes simply because the current implementation uses Candle.
