@@ -2,13 +2,34 @@
 
 An educational GPT implementation in Rust, trained on Tiny Shakespeare.
 
-This project started genuinely from scratch: a hand-written tensor type, matrix operations, attention, MLPs, layer norm, loss, sampling, and the local backward derivatives for the tensor operations. The final step — wiring a complete Transformer backward graph through attention, residuals, normalization, embeddings, and every parameter — was where the project deliberately switched to [Candle](https://github.com/huggingface/candle) for autograd.
+The part of this project that mattered to the original exercise was genuinely built from scratch: a hand-written tensor type, matrix operations, attention, MLPs, layer norm, loss, sampling, and local backward derivatives for the tensor operations. The project reached a complete forward/inference pipeline before switching to [Candle](https://github.com/huggingface/candle) for tensors and autograd.
 
-The hand-rolled implementation is still preserved in git history. The last pre-Candle version is [`1ebcd6d`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/tree/1ebcd6dfe93d835dbb29c28e879398d66cc4f51c); the Candle migration is [`ff9148c`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/ff9148ceb66dbed0e8d4ec4fe170fe35bd8f6ad3).
+That switch is also the natural boundary between two different projects in practice. The hand-rolled implementation was the learning exercise. After the Candle migration, later model tuning, BPE/CUDA work, dashboard work, and architecture experiments were largely agent-driven continuation rather than the part the author was personally trying to understand or optimize.
+
+The last pre-Candle version is [`1ebcd6d`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/tree/1ebcd6dfe93d835dbb29c28e879398d66cc4f51c); the Candle migration is [`ff9148c`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/ff9148ceb66dbed0e8d4ec4fe170fe35bd8f6ad3).
+
+## What was actually built from scratch?
+
+The hand-rolled phase implemented:
+
+- a custom `Tensor` type and tensor operations
+- matrix multiplication
+- slicing and concatenation
+- softmax, GELU, and layer normalization
+- token and position embeddings
+- causal multi-head self-attention
+- transformer blocks and a GPT forward pass
+- cross-entropy loss
+- temperature/top-k sampling and autoregressive generation
+- backward derivatives for the primitive tensor operations and loss
+
+The stopping point was not a broken tensor implementation. The missing piece was the full layer-level backward graph through attention, MLPs, residual paths, normalization, embeddings, and every parameter. At that point the project switched to Candle rather than continuing toward a home-grown autograd engine.
+
+The old implementation remains in git history and is arguably the most interesting part of the repository if the goal is to understand how a Transformer actually works below the framework layer.
 
 ## Current model
 
-`Config::nano()` is an approximately 11M-parameter decoder-only Transformer:
+The repository later evolved into a more conventional Candle-based training playground. `Config::nano()` is now an approximately 11M-parameter decoder-only Transformer:
 
 | Setting | Value |
 | --- | ---: |
@@ -22,72 +43,33 @@ The hand-rolled implementation is still preserved in git history. The last pre-C
 | Dropout | 0.1 |
 | LM head | tied to token embeddings |
 
-The server path trains a byte-level BPE tokenizer with a 1,024-token vocabulary, which gives about 11.0M parameters. The CLI and WASM path retain the simpler character tokenizer.
+The server path trains a byte-level BPE tokenizer with a 1,024-token vocabulary, giving roughly 11M parameters. The CLI and WASM path retain the simpler character tokenizer.
 
-## What is actually “from scratch”?
+## Why were the generated results so weak?
 
-The project has two eras:
+There are two different answers depending on which phase is being discussed.
 
-1. **Hand-rolled engine** — custom `Tensor`, matmul, softmax, GELU, layer norm, causal attention, model forward pass, cross-entropy, sampling, and tensor-level backward operations. This is the part written to learn the mechanics.
-2. **Candle era** — the model architecture, tokenizer plumbing, training loop, sampling, server, checkpointing, and UI remain project code, while Candle owns tensors and automatic differentiation.
+### Hand-rolled phase
 
-Switching to Candle was not a failure of the tensor implementation. The old code reached a complete forward/inference pipeline and implemented the primitive backward derivatives; it stopped before the much larger layer-level backward chain required for actual end-to-end training.
+The hand-rolled model never had complete end-to-end training. It could tokenize, run a full Transformer forward pass, calculate loss, sample, and decode, but the full parameter-level backward chain was unfinished. Generated text from random or effectively untrained weights was therefore expected to be poor.
 
-## Why the early generations were bad
+### Later Candle/agent phase
 
-There were several distinct experiments, and they should not be conflated.
+After the framework migration, the repository did gain real autograd training, but the early training setups were much weaker than the nanoGPT Shakespeare reference recipe.
 
-### 1. The hand-rolled model never had full end-to-end backprop
+The first Candle trainer defaulted to 500 steps with one 256-token sample per step: about **128,000 token predictions**.
 
-The pre-Candle executable could run tokenize → forward → loss → sample → decode, but the weights were still random because `attention_backward`, `block_backward`, `gpt_backward`, and the full parameter update chain did not exist yet. Gibberish from that version was expected.
+The next version used batch size 16 but still defaulted to 500 steps: about **2.05 million token predictions**.
 
-### 2. The first Candle run was drastically undertrained
+Karpathy's published nanoGPT Shakespeare character preset uses 5,000 steps × batch 64 × context 256: about **81.9 million token predictions**. See [`config/train_shakespeare_char.py`](https://github.com/karpathy/nanoGPT/blob/master/config/train_shakespeare_char.py).
 
-The initial Candle trainer defaulted to 500 steps with a single 256-token sample per step: roughly **128,000 token predictions**.
+So the later agent-driven experiments spent substantial time tuning a setup that was initially undertrained by a very large margin. They also changed several variables together—model size, batch size, learning rate, optimizer settings, tokenizer, CUDA, and eventually architecture—which made the results difficult to diagnose cleanly.
 
-The next version added batching, but the UI still defaulted to 500 steps × batch 16 × context 256: roughly **2.05 million token predictions**.
+One training-loop rough edge remains today: every `/api/train` request creates a fresh AdamW optimizer. Model weights survive between runs, but AdamW's moment state does not, and the learning-rate schedule restarts. Multiple short UI runs therefore are not equivalent to one continuous run.
 
-For comparison, Karpathy's published nanoGPT Shakespeare character preset uses 5,000 steps × batch 64 × context 256: roughly **81.9 million token predictions** — about 40× the training signal of that second setup. See [`config/train_shakespeare_char.py`](https://github.com/karpathy/nanoGPT/blob/master/config/train_shakespeare_char.py).
+There is also no held-out validation split, so the dashboard cannot cleanly distinguish undertraining from memorization or overfitting.
 
-That difference alone is enough to explain a large amount of the “Shakespeare-flavored word salad.”
-
-### 3. Too many variables changed at once
-
-The debugging path then changed model size, batch size, learning rate, AdamW settings, CUDA, tokenizer type, and eventually the architecture itself. The current model uses RoPE + RMSNorm + SwiGLU + weight tying, while the earlier baseline used learned position embeddings + LayerNorm + GELU.
-
-Those are reasonable experiments, but once several change together, a bad sample no longer tells you which change helped or hurt.
-
-### 4. Repeated UI training runs are not true continuous training
-
-Each `/api/train` request currently constructs a fresh AdamW optimizer. The model weights survive between runs, but AdamW's first- and second-moment state does not. The learning-rate schedule also restarts on every request.
-
-That means ten short runs are **not equivalent** to one long run. For serious training, prefer one sufficiently long run until optimizer state is made persistent/checkpointable.
-
-### 5. There is no validation split
-
-The project reports training loss and generated samples, but not held-out validation loss. On a corpus this small, that makes it hard to distinguish undertraining, successful learning, and pure memorization. Adding a deterministic train/validation split is the most useful next measurement improvement.
-
-## A sane debugging baseline
-
-Before changing architecture again, establish one boring, reproducible baseline.
-
-Karpathy's Shakespeare character preset is:
-
-```text
-layers        6
-heads         6
-embedding     384
-context       256
-batch         64
-steps         5000
-learning rate 1e-3
-beta2         0.99
-warmup        100
-min LR        1e-4
-dropout       0.2
-```
-
-The current model is not an exact nanoGPT reproduction, so this is a training reference rather than a claim of apples-to-apples equivalence. The clean experiment is: character tokenizer first, fixed seed, train/validation loss, one uninterrupted run, then change one thing at a time.
+These are observations about the later repository state, not a reconstruction of a deliberate personal training program.
 
 ## Quick start
 
@@ -134,7 +116,7 @@ The server path uses the BPE tokenizer, supports live loss/generation/probabilit
 
 ```text
 src/
-  gpt.rs                 model, RoPE, attention, SwiGLU, sampling
+  gpt.rs                 current Candle model, RoPE, attention, SwiGLU, sampling
   tokenizer.rs           tokenizer module surface
   tokenizer/
     tokenizer.rs         character tokenizer
@@ -156,15 +138,25 @@ web/                      local dashboard + design mockups
 docs/lesson-attention.md  attention notes from the hand-rolled phase
 ```
 
-## Known rough edges
+## Historical note
+
+If the repository is being read as a learning project, start with the pre-Candle history rather than the current `main` tree. The current code is cleaner and more capable, but it hides most of the machinery that motivated the project in the first place.
+
+Useful historical commits:
+
+- [`9148f85`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/9148f85b597b5fb4a2a3e47ebffe904735c27d05) — custom Tensor methods and tests
+- [`dea8892`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/dea8892e227106793a6eca1da167cedb7a9b1738) — model components, tensor ops, sampling/generation
+- [`e937210`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/e9372109acb2f38232ee833fe80d0666284133ec) — tensor backward methods and cross-entropy backward
+- [`1ebcd6d`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/1ebcd6dfe93d835dbb29c28e879398d66cc4f51c) — complete hand-rolled forward/inference pipeline
+- [`ff9148c`](https://github.com/Yitzchak-Holtzberg/rust-gpt-from-scratch/commit/ff9148ceb66dbed0e8d4ec4fe170fe35bd8f6ad3) — migration to Candle
+
+## Known rough edges in the current implementation
 
 - Server training recreates AdamW state for each training request.
 - Checkpoints persist model/tokenizer/dataset, not optimizer state.
-- CLI and server intentionally use different tokenizers, which makes their losses and step counts non-comparable.
+- CLI and server use different tokenizers, so their losses and step counts are not directly comparable.
 - There is no train/validation split or reproducible random seed yet.
-- The WASM path is character-tokenizer based and is separate from the BPE server checkpoint format.
-
-Those are more important to fix than further architecture ornamentation.
+- The WASM path is character-tokenizer based and separate from the BPE server checkpoint format.
 
 ## References
 
