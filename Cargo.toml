@@ -5,7 +5,7 @@ members = [".", "wasm-inference"]
 name = "nano-gpt-rs"
 version = "0.1.0"
 edition = "2021"
-description = "2M-parameter GPT from scratch in pure Rust"
+description = "Educational GPT training and inference in Rust, with a hand-rolled tensor-engine history and Candle autograd"
 authors = ["Yitzchak-Holtzberg"]
 
 [[bin]]
