@@ -1,191 +1,165 @@
-# rust-gpt-from-scratch
+# rust-gpt-from-scratch — hand-rolled autograd
 
-## Where to start
+This branch is the learning version of the project: a GPT built from ordinary Rust data structures and math, with no ML framework doing tensors or automatic differentiation.
 
-Work through the phases in order. Each phase builds on the previous one.
-The file to open is listed — everything else is already stubbed out.
+It was split from commit `1ebcd6d`, the last pre-Candle state of the original project. The goal here is not to get impressive Shakespeare output as quickly as possible. The goal is to understand, piece by piece, how a Transformer actually trains.
 
----
+## Current checkpoint
 
-### Phase 1 — Tensor engine ✅ COMPLETE
-**File:** `src/tensor/mod.rs`
+Already working:
 
-All methods implemented and tested: `new`, `zeros`, `ones`, `reshape`,
-`transpose_2d`, `add`, `mul`, `scale`, `matmul`, `softmax`, `layer_norm`,
-`gelu`, `causal_mask`.
+- A hand-written row-major `Tensor` backed by `Vec<f32>`
+- Core forward operations: reshape, transpose, slicing, concatenation, add/bias, multiply, scale, matmul, softmax, layer norm, GELU, causal masks
+- Character tokenizer and sliding-window dataset
+- Multi-head causal self-attention
+- MLP, Transformer block, and full GPT forward pass
+- Cross-entropy loss and a hand-written Adam optimizer
+- Temperature/top-k sampling and autoregressive generation
+- Several local backward derivatives for tensor operations
+- Tests for tensors, model pieces, tokenizer, and training helpers
 
-All tests in `tests/tensor_tests.rs` passing.
+Not working yet:
 
-**Read:**
-- Layer norm paper: https://arxiv.org/abs/1607.06450
-- GELU paper: https://arxiv.org/abs/1606.08415
-- Visual intro to matrix multiply: https://matrixmultiplication.xyz
+- End-to-end training
+- Automatic differentiation / computation graph
+- Gradient propagation through the whole Transformer
 
----
+The most concrete unfinished primitive is currently `Tensor::matmul_backward`, which is still a `todo!()`.
 
-### Phase 2 — Tokenizer and dataset 🔄 IN PROGRESS
-**File:** `src/tokenizer/mod.rs`
+## Ground rules
 
-Tests written in `tests/tokenizer_tests.rs`. Implement:
-- [x] Tests written (TDD — tests exist, implementations are `todo!()`)
-- [ ] `CharTokenizer::from_text` — collect unique chars, sort, build `HashMap`
-- [ ] `vocab_size` — return `self.vocab.len()`
-- [ ] `encode` — map each char to its ID, drop unknowns
-- [ ] `decode` — map each ID back to char, join into String
-- [ ] `Dataset::new`, `num_samples`, `get` — sliding window over token IDs
+This branch exists to learn the machinery, not to race to a result.
 
-The dataset returns sliding windows of (input, target) token pairs
-where target is input shifted right by one position.
+1. **No Candle, PyTorch, burn, tch, or other tensor/autograd framework.** `rand`, `serde`, and ordinary utility crates are fine.
+2. **One conceptual step at a time.** Do not combine autograd, architecture changes, tokenization experiments, CUDA, dashboards, or model scaling.
+3. **Correctness before speed.** Tiny matrices and slow loops are fine.
+4. **Tests before integration.** Every derivative should be checked independently before it is trusted inside the model.
+5. **Use numerical gradient checks.** Finite differences are the referee for hand-derived gradients.
+6. **Do not use Shakespeare as the first success criterion.** First make tiny functions, then tiny networks, then a tiny Transformer deliberately overfit microscopic data.
+7. **No architecture modernization until training works.** Learned position embeddings, LayerNorm, GELU, and the existing 2-layer model stay as-is.
 
-**Get training data:**
-```
-curl -o data/input.txt https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
-```
+## Roadmap
 
-**Check your work:** encode a short string, decode it back, assert it matches.
+### Milestone 0 — Establish the baseline
 
----
+Run:
 
-### Phase 3 — Attention
-**File:** `src/model/attention.rs`
-
-Implement `AttentionWeights::zeros` and `attention_forward`.
-
-The steps are in the function's doc comment. The shape flow is:
-```
-[T, D] -> project to [T, 3D] -> split Q/K/V [T, D] each
-       -> reshape to [H, T, Dh]
-       -> scores = Q @ K.T / sqrt(Dh) + causal_mask  [T, T]
-       -> softmax(scores) @ V  [T, Dh]
-       -> concat heads [T, D] -> output projection [T, D]
+```bash
+cargo test
+cargo run --release --bin train -- data/input.txt
 ```
 
-**The most common bug:** getting the head reshape wrong. Draw the tensor
-dimensions on paper before writing the loop.
+The training binary is currently only a forward-pass smoke test. It should report an initial loss around `ln(vocab_size)` for random weights.
 
-**Read:**
-- Original transformer paper (section 3.2): https://arxiv.org/abs/1706.03762
-- Illustrated Transformer (visual): https://jalammar.github.io/illustrated-transformer/
+Do not change anything until the existing tests are understood and green.
 
----
+### Milestone 1 — Finish primitive derivatives
 
-### Phase 4 — MLP, Block, and full forward pass
-**Files:** `src/model/mlp.rs`, `src/model/block.rs`, `src/model/gpt.rs`
+Start with exactly one function:
 
-Do these in order:
+```text
+Tensor::matmul_backward
+```
 
-1. `mlp_forward` — two matmuls with a GELU in between
-2. `block_forward` — call layernorm, then attention, then add residual; repeat for MLP
-3. `GptWeights::zeros` and `gpt_forward` — embed tokens + positions, run blocks, final norm, lm_head
+For `Z = A @ B` and incoming gradient `dZ`, derive and test:
 
-**Check your work:** `cargo run --bin train -- data/input.txt`
+```text
+dA = dZ @ B^T
+dB = A^T @ dZ
+```
 
-If the tokenizer and tensor engine are correct, the initial loss should be
-close to `ln(vocab_size)` — for 65 chars that's ~4.17. If it's wildly
-different, something in the forward pass is wrong.
+Then add a finite-difference gradient check for small matrices. Only after that passes should the other existing backward helpers be audited the same way.
 
-**Read:**
-- Residual connections: https://arxiv.org/abs/1512.03385
+**Stop here after the first successful session.** A small verified step is the intended pace.
 
----
+### Milestone 2 — Build a tiny reverse-mode autodiff graph
 
-### Phase 5 — Training
-**File:** `src/training/mod.rs`, then wire up `src/bin/train.rs`
+Once the primitive derivatives are trusted, design the missing abstraction:
 
-Two parts:
+- which operation produced a tensor
+- which parent tensors fed that operation
+- accumulated gradient for each value that requires gradients
+- reverse topological traversal from a scalar loss
 
-**5a. Loss** — implement `cross_entropy_loss`. Use the log-sum-exp trick
-(subtract the row max before exp) for numerical stability.
+The target API can eventually feel roughly like:
 
-**5b. Optimizer** — implement `Adam::new` and `Adam::step`. The update rule
-is in the function's doc comment.
+```text
+loss.backward()
+```
 
-**5c. Backprop** — the hard part. Two options:
+but the representation should be designed deliberately rather than copied wholesale from a framework.
 
-- **Manual:** derive and implement `dLoss/dW` for each op working backwards
-  from the loss. Start with the gradient of cross-entropy + softmax combined
-  (it simplifies cleanly to `softmax(logits) - one_hot(target)`), then work
-  back through lm_head, layernorm, MLP, attention, embeddings.
+### Milestone 3 — Prove autograd on toy math
 
-- **candle autodiff:** add `candle-core` to `Cargo.toml`, swap `Tensor` for
-  `candle_core::Tensor`, call `.backward()` on the loss, collect `.grad()`
-  per parameter, pass to `Adam::step`.
-  Docs: https://github.com/huggingface/candle
+Before touching the Transformer, train something embarrassingly small:
 
-**5d. Training loop** — in `src/bin/train.rs`: sample batches, forward pass,
-loss, backward, step. Log loss every N steps.
+- scalar expressions such as `y = x*x + x`
+- a linear layer on a few points
+- a 2-layer MLP that memorizes a tiny dataset
 
-**Expected loss curve:** starts at ~4.17, should fall to ~1.3-1.5 after
-enough steps on Tiny Shakespeare.
+If a ten-example MLP cannot overfit, the bug is still below the Transformer.
 
-**Common failures:**
-| Symptom | Cause |
-|---|---|
-| Loss stays at 4.17 | Gradients not flowing / optimizer not stepping |
-| Loss goes to NaN | LR too high — clip gradients to norm 1.0 |
-| Loss falls then plateaus | LR too low or batch too small |
+### Milestone 4 — Train one attention unit
 
-**Read:**
-- Adam paper: https://arxiv.org/abs/1412.6980
-- Karpathy's nanoGPT (reference implementation in Python): https://github.com/karpathy/nanoGPT
-- Karpathy's "build GPT from scratch" video: https://www.youtube.com/watch?v=kCc8FmEb1nY
+Use a synthetic sequence task small enough to inspect by hand. Verify that attention parameters receive gradients and that loss falls.
 
----
+### Milestone 5 — Reconnect the GPT
 
-### Phase 6 — Inference
-**Files:** `src/inference/mod.rs`, `src/bin/generate.rs`
+Let the existing forward model become a composition of autograd-aware tensor operations. Avoid writing a giant bespoke `gpt_backward`; reverse-mode autodiff should make the layer-level backward pass emerge from the primitive operations.
 
-Implement `sample_token` (temperature scaling + top-k filter + multinomial
-sample) and `generate` (the autoregressive loop).
+First target: memorize a microscopic corpus such as a few repeated lines.
 
-Then wire up `generate.rs` to load saved weights and vocab from disk, encode
-the prompt, run `generate()`, and print the result.
+### Milestone 6 — Tiny Shakespeare
 
-**Read:**
-- Sampling strategies (temperature, top-k, top-p): https://arxiv.org/abs/1904.09751
-
----
-
-### Stretch goals
-- **KV cache** — cache K and V from past positions so each generation step
-  is O(T×D) instead of O(T²×D)
-- **Gradient clipping** — clip global gradient norm to 1.0 before optimizer step
-- **Weight tying** — share `tok_embed` and `lm_head` weights (halves params)
-- **RoPE** — replace learned positional embeddings with rotary encodings:
-  https://arxiv.org/abs/2104.09864
-
----
+Only after the model can intentionally overfit tiny data should Tiny Shakespeare become useful. At that point generated text is an integration test, not the primary debugging signal.
 
 ## Architecture
 
+The existing learning model is intentionally small:
+
 | Hyperparameter | Value |
-|---|---|
+| --- | ---: |
 | Layers | 2 |
 | Heads | 2 |
-| Embedding dim | 128 |
-| MLP ratio | 4x |
+| Embedding width | 128 |
+| MLP ratio | 4× |
 | Context length | 256 |
-| Tokenizer | Character-level |
+| Tokenizer | character-level |
 
----
+There is no reason to make it larger while the goal is understanding gradients.
 
-## Project structure
+## Project layout
 
-```
+```text
 src/
-  tensor/mod.rs       Phase 1 — all math ops
-  tokenizer/mod.rs    Phase 2 — char tokenizer, dataset
+  tensor.rs             hand-written tensor operations + local derivatives
+  tokenizer/
+    tokenizer.rs        character tokenizer
+    dataset.rs          sliding-window dataset
   model/
-    config.rs         Hyperparameters (already filled in)
-    attention.rs      Phase 3 — multi-head self-attention
-    mlp.rs            Phase 4 — feed-forward block
-    block.rs          Phase 4 — transformer block
-    gpt.rs            Phase 4 — full forward pass
-  training/mod.rs     Phase 5 — loss, optimizer, backprop
-  inference/mod.rs    Phase 6 — sampling, generation loop
+    config.rs           model dimensions
+    attention.rs        multi-head causal attention
+    mlp.rs              feed-forward network
+    block.rs            Transformer block
+    gpt.rs              full GPT forward pass
+  training.rs           cross-entropy, backward helper, Adam, training TODO
+  inference.rs          sampling and generation
   bin/
-    train.rs          Phase 5 — training entry point
-    generate.rs       Phase 6 — generation entry point
-data/
-  README.md           How to get training data
+    train.rs            current forward/loss smoke test
+    generate.rs         inference with random weights
+
+tests/
+  tensor_tests.rs
+  model_tests.rs
+  tokenizer_tests.rs
+  training_tests.rs
 ```
+
+## Useful references
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [Automatic Differentiation in Machine Learning: a Survey](https://arxiv.org/abs/1502.05767)
+- [micrograd](https://github.com/karpathy/micrograd) — useful as a conceptual reference, not code to copy
+- [nanoGPT](https://github.com/karpathy/nanoGPT) — useful later as a behavioral reference
+
+The next task is intentionally narrow: **understand and implement `matmul_backward`, then prove it with finite differences.**

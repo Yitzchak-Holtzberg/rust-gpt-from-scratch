@@ -1,51 +1,57 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This branch is a learning project: a GPT and the minimum autograd machinery needed to train it, written in ordinary Rust without an ML framework.
 
-## Build & Test Commands
+## Build and test
 
 ```bash
-cargo build                    # Debug build
-cargo build --release          # Optimized build (opt-level 3)
-cargo test                     # Run all tests
-cargo test tensor              # Run tensor tests only
-cargo test tokenizer           # Run tokenizer tests only
-cargo test <test_name>         # Run a single test by name
-cargo run --release --bin train -- data/input.txt   # Train on text file
-cargo run --release --bin generate -- "prompt"       # Generate text
+cargo build
+cargo test
+cargo test tensor
+cargo test tokenizer
+cargo test training
+cargo run --release --bin train -- data/input.txt
+cargo run --release --bin generate -- "prompt"
 ```
 
-## Architecture
+## Current architecture
 
-This is a 2M-parameter GPT built from scratch in pure Rust with no ML framework. The codebase follows a 6-phase incremental build (see README.md for full roadmap):
+- `src/tensor.rs` — hand-written row-major `Tensor` backed by `Vec<f32>`
+- `src/tokenizer/` — character tokenizer + sliding-window dataset
+- `src/model/` — 2-layer, 2-head, 128-wide GPT forward implementation
+- `src/training.rs` — cross-entropy, several local backward helpers, hand-written Adam
+- `src/inference.rs` — temperature/top-k sampling and autoregressive generation
 
-1. **Tensor engine** (`src/tensor/mod.rs`) — Flat `Vec<f32>` with `Vec<usize>` shape. Row-major layout. All ops return new tensors (immutable style). No automatic broadcasting. Panics on shape mismatches.
+The current missing capability is end-to-end reverse-mode automatic differentiation. `Tensor::matmul_backward` is still unfinished and is the intended next step.
 
-2. **Tokenizer & Dataset** (`src/tokenizer/`) — `CharTokenizer` maps characters to integer IDs. `Dataset` produces sliding-window `(input, target)` pairs of length `context_len`.
+## Collaboration rules
 
-3. **Model** (`src/model/`) — `Config` holds hyperparameters (2 layers, 2 heads, embed_dim=128, context_len=256). Each component (`attention`, `mlp`, `block`, `gpt`) has a `*Weights` struct and a free-function `*_forward` (not a method). Shape flow for attention: `[T,D] → [T,3D] → split Q/K/V → [H,T,Dh] → scores → softmax → [T,D]`.
+The primary goal is understanding, not velocity.
 
-4. **Training** (`src/training/mod.rs`) — Cross-entropy loss, AdamW optimizer, backpropagation.
+- Do **not** introduce Candle, PyTorch, burn, tch, or another tensor/autograd framework.
+- Do **not** modernize the architecture, tokenizer, optimizer, or infrastructure unless explicitly requested.
+- Do **not** add CUDA, BPE, a web UI, a server, distributed training, or model scaling as incidental improvements.
+- Keep changes narrowly scoped to the current learning milestone in README.md.
+- Prefer one concept and one small commit at a time.
+- Preserve the hand-written tensor implementation and simple free-function model style.
+- Avoid unrelated cleanup while a mathematical concept is being learned.
 
-5. **Inference** (`src/inference/mod.rs`) — Temperature + top-k sampling, autoregressive generation loop.
+## Teaching style
 
-Entry points: `src/bin/train.rs` and `src/bin/generate.rs`.
+The user wants to implement and understand the important pieces personally.
 
-## Key Conventions
+By default:
 
-- **TDD approach**: Tests are written first (in `tests/`), implementations fill in `todo!()` stubs
-- Forward pass functions are module-level free functions, not methods on weight structs
-- Weight structs (`AttentionWeights`, `MlpWeights`, etc.) have a `::zeros(config)` constructor
-- Dependencies are minimal: `rand`, `serde`, `serde_json` only
-- Data files (`.txt`, `.bin`, `.safetensors`) are gitignored; download Tiny Shakespeare per `data/README.md`
+1. Explain the invariant and shape flow first.
+2. Give a tiny numerical example.
+3. Suggest the test that would prove correctness.
+4. Give Rust syntax hints if useful.
+5. Do **not** provide the complete implementation unless the user explicitly asks for it.
 
-## Collaboration Style
+If the user explicitly asks to implement a step, implement only that step and explain what changed.
 
-The user is learning Rust and LLMs from scratch through this project.
-- Break each step into a lesson: explain the concept and *why* it works
-- Provide relevant Rust syntax patterns as hints
-- Do NOT give the exact solution — guide the user to figure it out themselves
+For gradient code, prefer finite-difference checks over trusting algebra or generated code.
 
-## Signature Conventions (deviations from original stubs)
+## Immediate milestone
 
-- `mlp_forward` does not take `cfg` — the weights already encode the dimensions, so `cfg` was redundant. Removed to keep signatures clean.
+Finish and verify `Tensor::matmul_backward` only. Do not jump directly to `attention_backward`, `gpt_backward`, or a full training loop. Once primitive derivatives are verified, the next design problem is a small reverse-mode computation graph so layer-level backward passes emerge from composition rather than bespoke giant backward functions.
